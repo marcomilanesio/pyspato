@@ -6,7 +6,7 @@ from models import linmodel
 
 
 def standardize(X):
-    return 2 * (X - np.min(X)) / (np.max(X) - np.min(X)) - 1, np.min(X), np.max(X)
+    return 2 * (X - np.min(X)) / (np.max(X) - np.min(X)) - 1
 
 
 def add_noise(y):
@@ -16,7 +16,7 @@ def add_noise(y):
 
 Nsamples = 400  # TO SCALE
 Xold = np.linspace(0, 1000, Nsamples).reshape([Nsamples, 1])
-X = standardize(Xold)[0]
+X = standardize(Xold)
 
 W = np.random.randint(1, 10, size=(5, 1))
 
