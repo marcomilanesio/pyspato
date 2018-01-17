@@ -1,7 +1,8 @@
-import torch.optim
 import numpy as np
+import torch.optim
 from torch.autograd import Variable
-import linmodel
+
+from models import linmodel
 
 
 def standardize(X):
