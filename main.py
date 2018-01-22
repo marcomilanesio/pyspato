@@ -7,6 +7,7 @@ import utils
 
 from pyspark import SparkContext
 
+
 def prepare_input(nsamples=400):
     Xold = np.linspace(0, 1000, nsamples).reshape([nsamples, 1])
     X = utils.standardize(Xold)
@@ -32,8 +33,9 @@ def instantiate_model(x):
 
 
 def step(rdd1, rdd2):
-    rdd = rdd1.map(instantiate_model)
-
+    rdd = rdd1.map(instantiate_model)  # .zipWithIndex().map(lambda x: (x[1], x[0]))
+    print(rdd.take(1))
+    #print(rdd2.count())
     return None
 
     model = linmodel.LinModel(1, 5)
@@ -53,7 +55,8 @@ def step(rdd1, rdd2):
 
 def main(sc, num_partitions=4):
     x, y, W = prepare_input()
-    rdd_x = sc.parallelize(x).repartition(num_partitions)
+    parts = list(torch.split(x, int(x.size()[0] / num_partitions)))
+    rdd_x = sc.parallelize(parts).repartition(num_partitions)
     rdd_y = sc.parallelize(y).repartition(num_partitions)
     model = step(rdd_x, rdd_y)
     exit(0)
