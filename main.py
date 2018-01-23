@@ -36,11 +36,16 @@ def instantiate_model(tup):
     return full
 
 
-def step(rdd1, rdd2):
-    rdd = rdd1.map(instantiate_model)
-    print(rdd.take(1))
-    #print(rdd2.count())
-    return None
+def step(tup, gradient=None):
+    x = tup[0]
+    y = tup[1]
+    model = tup[2]
+    optimizer = tup[3]
+    prediction = model(x)
+    loss = linmodel.cost(y, prediction)
+    optimizer.zero_grad()
+    loss.backward()
+    return x, y, model, optimizer
 
     model = linmodel.LinModel(1, 5)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
@@ -69,7 +74,7 @@ def main(sc, num_partitions=4):
              .map(instantiate_model)  # [((100,1), (5,100), m1, o1), ... )
              .cache())
 
-    print([type(x) for x in parts.take(1)[0]])
+    # print([type(x) for x in parts.take(1)[0]])
 
     exit(0)
     return model, W
