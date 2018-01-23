@@ -9,7 +9,7 @@ def cost(target, predicted):
     :return:
     """
     cost = torch.sum((torch.t(target) - predicted) ** 2)
-    print(cost)
+    # print(cost)
     return cost
 
 
