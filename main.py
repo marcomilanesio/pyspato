@@ -24,12 +24,11 @@ def prepare_input(nsamples=400):
     return x, y, W
 
 
-def instantiate_model(x):
+def instantiate_model(tup):
     model = linmodel.LinModel(1, 5)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
-    prediction = model(x)
-
-    return model, optimizer, prediction
+    full = (*tup, model, optimizer)
+    return full
 
 
 def step(rdd1, rdd2):
@@ -61,11 +60,12 @@ def main(sc, num_partitions=4):
     rdd_x = sc.parallelize(parts_x).repartition(num_partitions)
     rdd_y = sc.parallelize(parts_y).repartition(num_partitions)
 
-    parts = rdd_x.zip(rdd_y).cache()  # [((100x1), (5x100)), ...]
-    print(parts.count())
-    exit()
+    parts = (rdd_x.zip(rdd_y)  # [((100x1), (5x100)), ...]
+             .map(instantiate_model)  # [((100,1), (5,100), m1, o1), ... )
+             .cache())
 
-    model = step(rdd_x, rdd_y)
+    print([type(x) for x in parts.take(1)[0]])
+
     exit(0)
     return model, W
 
