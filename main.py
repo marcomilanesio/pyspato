@@ -45,7 +45,9 @@ def step(tup, gradient=None):
     loss = linmodel.cost(y, prediction)
     optimizer.zero_grad()
     loss.backward()
-    return x, y, model, optimizer
+    gradient = [param.grad.data for param in model.parameters()]
+
+    return x, y, model, optimizer, gradient
     """
     model = linmodel.LinModel(1, 5)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
@@ -73,6 +75,7 @@ def main(sc, num_partitions=4):
     parts = (rdd_x.zip(rdd_y)  # [((100x1), (5x100)), ...]
              .map(instantiate_model)  # [((100,1), (5,100), m1, o1), ... )
              .cache())
+
 
     # print([type(x) for x in parts.take(1)[0]])
 
