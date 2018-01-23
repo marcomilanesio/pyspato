@@ -33,7 +33,7 @@ def instantiate_model(x):
 
 
 def step(rdd1, rdd2):
-    rdd = rdd1.map(instantiate_model)  # .zipWithIndex().map(lambda x: (x[1], x[0]))
+    rdd = rdd1.map(instantiate_model)
     print(rdd.take(1))
     #print(rdd2.count())
     return None
