@@ -55,9 +55,16 @@ def step(rdd1, rdd2):
 
 def main(sc, num_partitions=4):
     x, y, W = prepare_input()
-    parts = list(torch.split(x, int(x.size()[0] / num_partitions)))
-    rdd_x = sc.parallelize(parts).repartition(num_partitions)
-    rdd_y = sc.parallelize(y).repartition(num_partitions)
+    parts_x = list(torch.split(x, int(x.size()[0] / num_partitions)))
+    parts_y = list(torch.split(y, int(x.size()[0] / num_partitions), 1))
+
+    rdd_x = sc.parallelize(parts_x).repartition(num_partitions)
+    rdd_y = sc.parallelize(parts_y).repartition(num_partitions)
+
+    parts = rdd_x.zip(rdd_y)  # [((100x1), (5x100)), ...]
+    print(parts.count())
+    exit()
+
     model = step(rdd_x, rdd_y)
     exit(0)
     return model, W
