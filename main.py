@@ -19,8 +19,6 @@ for i in range(Y.shape[1]):
 x = Variable(torch.from_numpy(X), requires_grad=False).type(torch.FloatTensor)
 y = Variable(torch.from_numpy(Y), requires_grad=False).type(torch.FloatTensor)
 
-# how to split x, y
-
 model = linmodel.LinModel(1, 5)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
@@ -30,10 +28,12 @@ for i in range(5000):
     loss = linmodel.cost(y, prediction)
     optimizer.zero_grad()
     loss.backward()  # get the gradients
-
+    assert not any([x.grad, y.grad, loss.grad])
     # sum gradients
 
     optimizer.step()  #
+
+
 
 print([param.data for param in model.parameters()])
 print(W)
