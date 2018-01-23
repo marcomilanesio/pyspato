@@ -61,7 +61,7 @@ def main(sc, num_partitions=4):
     rdd_x = sc.parallelize(parts_x).repartition(num_partitions)
     rdd_y = sc.parallelize(parts_y).repartition(num_partitions)
 
-    parts = rdd_x.zip(rdd_y)  # [((100x1), (5x100)), ...]
+    parts = rdd_x.zip(rdd_y).cache()  # [((100x1), (5x100)), ...]
     print(parts.count())
     exit()
 
