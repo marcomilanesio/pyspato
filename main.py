@@ -25,6 +25,11 @@ def prepare_input(nsamples=400):
 
 
 def instantiate_model(tup):
+    """
+
+    :param tup: a slice of x and y zipped together
+    :return: (torch.Variable, torch.Variable, model, optimizer)
+    """
     model = linmodel.LinModel(1, 5)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
     full = (*tup, model, optimizer)
