@@ -46,10 +46,10 @@ def step(tup, gradient=None):
     optimizer.zero_grad()
     loss.backward()
     return x, y, model, optimizer
-
+    """
     model = linmodel.LinModel(1, 5)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
-
+    
     for i in range(5000):
         prediction = model(v1)  # x = (400, 1): x1 = (200. 1). x2 = (200, 1)
         loss = linmodel.cost(v2, prediction)
@@ -60,7 +60,7 @@ def step(tup, gradient=None):
 
         optimizer.step()  #
     return model
-
+    """
 
 def main(sc, num_partitions=4):
     x, y, W = prepare_input()
