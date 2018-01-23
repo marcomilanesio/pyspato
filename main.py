@@ -28,7 +28,7 @@ for i in range(5000):
     loss = linmodel.cost(y, prediction)
     optimizer.zero_grad()
     loss.backward()  # get the gradients
-    assert not any([x.grad, y.grad, loss.grad])
+    print([param.grad.data for param in model.parameters()])
     # sum gradients
 
     optimizer.step()  #
