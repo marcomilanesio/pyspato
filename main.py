@@ -21,19 +21,32 @@ def prepare_input(nsamples=400):
 
     x = Variable(torch.from_numpy(X), requires_grad=False).type(torch.FloatTensor)
     y = Variable(torch.from_numpy(Y), requires_grad=False).type(torch.FloatTensor)
+    print("created torch variables {} {}".format(x.size(), y.size()))
     return x, y, W
 
 
-def instantiate_model(tup):
-    """
+def initialize(tup):
+    x, y = tup[0]   # data
+    m, o = tup[1]   # models and optimizer
+    model, optimizer = torch_step(x, y, m, o)
+    print('gradient: {}'.format([param.grad.data for param in model.parameters()]))
+    return (x, y), (model, optimizer)
 
-    :param tup: a slice of x and y zipped together
-    :return: (torch.Variable, torch.Variable, model, optimizer)
-    """
+
+def create_model():
     model = linmodel.LinModel(1, 5)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
-    full = (*tup, model, optimizer)
-    return full
+    return model, optimizer
+
+
+def torch_step(x, y, model, optimizer):
+    print('torch_step')
+    prediction = model(x)
+    loss = linmodel.cost(y, prediction)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+    return model, optimizer
 
 
 def step(tup, gradient=None):
@@ -45,9 +58,11 @@ def step(tup, gradient=None):
     loss = linmodel.cost(y, prediction)
     optimizer.zero_grad()
     loss.backward()
-    gradient = [param.grad.data for param in model.parameters()]
+    optimizer.step()
 
-    return x, y, model, optimizer, gradient
+    # gradient = [param.grad.data for param in model.parameters()]
+
+    return x, y, model, optimizer
     """
     model = linmodel.LinModel(1, 5)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
@@ -64,19 +79,32 @@ def step(tup, gradient=None):
     return model
     """
 
+
 def main(sc, num_partitions=4):
     x, y, W = prepare_input()
     parts_x = list(torch.split(x, int(x.size()[0] / num_partitions)))
     parts_y = list(torch.split(y, int(x.size()[0] / num_partitions), 1))
 
+    rdd_models = sc.parallelize([create_model() for _ in range(num_partitions)]).repartition(num_partitions)
+
     rdd_x = sc.parallelize(parts_x).repartition(num_partitions)
     rdd_y = sc.parallelize(parts_y).repartition(num_partitions)
 
-    parts = (rdd_x.zip(rdd_y)  # [((100x1), (5x100)), ...]
-             .map(instantiate_model)  # [((100,1), (5,100), m1, o1), ... )
-             .cache())
+    parts = rdd_x.zip(rdd_y)  # [((100x1), (5x100)), ...]
 
+    full = parts.zip(rdd_models).map(initialize).cache()
 
+    models_out = full.map(lambda x: x[1][0]).collect()
+    for m in models_out:
+        for i in m.parameters():
+            print(i.grad)
+
+    # print([param.grad.data for param in test[1][0].parameters()])
+    # print([param.grad.data for param in model.parameters()])
+    return None, W
+    r = parts.take(1)
+    m = r[0][2]
+    print([param.grad.data for param in m.parameters()])
     # print([type(x) for x in parts.take(1)[0]])
 
     exit(0)
@@ -85,5 +113,5 @@ def main(sc, num_partitions=4):
 if __name__ == '__main__':
     sc = SparkContext(appName='pyspato')
     model, W = main(sc)
-    print([param.data for param in model.parameters()])
-    print(W)
+    # print([param.data for param in model.parameters()])
+    # print(W)
