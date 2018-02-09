@@ -25,12 +25,23 @@ def prepare_input(nsamples=400):
     return x, y, W
 
 
+def save_state(model, optimizer):
+    model_dict = model.state_dict()
+    optimizer_dict = optimizer.state_dict()
+    gradients = [param.grad.data for param in model.parameters()]
+    state = {'model': model_dict,
+             'optimizer': optimizer_dict,
+             'gradients': gradients}
+    return state
+
+
 def initialize(tup):
     x, y = tup[0]   # data
     m, o = tup[1]   # models and optimizer
     model, optimizer = torch_step(x, y, m, o)
-    print('gradient: {}'.format([param.grad.data for param in model.parameters()]))
-    return (x, y), (model, optimizer)
+    state = save_state(model, optimizer)
+    # print('gradient: {}'.format([param.grad.data for param in model.parameters()]))
+    return x, y, state
 
 
 def create_model():
@@ -94,11 +105,8 @@ def main(sc, num_partitions=4):
 
     full = parts.zip(rdd_models).map(initialize).cache()
 
-    models_out = full.map(lambda x: x[1][0]).collect()
-    for m in models_out:
-        for i in m.parameters():
-            print(i.grad)
-
+    print(full.take(1))
+    
     # print([param.grad.data for param in test[1][0].parameters()])
     # print([param.grad.data for param in model.parameters()])
     return None, W
