@@ -40,7 +40,6 @@ def initialize(tup):
     m, o = tup[1]   # models and optimizer
     model, optimizer = torch_step(x, y, m, o)
     state = save_state(model, optimizer)
-    # print('gradient: {}'.format([param.grad.data for param in model.parameters()]))
     return x, y, state
 
 
@@ -106,7 +105,7 @@ def main(sc, num_partitions=4):
     full = parts.zip(rdd_models).map(initialize).cache()
 
     print(full.take(1))
-    
+
     # print([param.grad.data for param in test[1][0].parameters()])
     # print([param.grad.data for param in model.parameters()])
     return None, W
