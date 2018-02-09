@@ -90,6 +90,12 @@ def step(tup, gradient=None):
     """
 
 
+def gradients_sum(gradients):
+    s = torch.stack(gradients)
+    su = torch.sum(s, dim=0)
+    return su
+
+
 def main(sc, num_partitions=4):
     x, y, W = prepare_input()
     parts_x = list(torch.split(x, int(x.size()[0] / num_partitions)))
@@ -104,7 +110,13 @@ def main(sc, num_partitions=4):
 
     full = parts.zip(rdd_models).map(initialize).cache()
 
-    print(full.take(1))
+    gradients = full.map(lambda x: x[2]['gradients'][0]).collect()
+    g_sum = gradients_sum(gradients)
+
+    # print([x.size() for x in gradients])
+
+    # test = torch.stack(gradients, dim=0)
+    # print(test.size())
 
     # print([param.grad.data for param in test[1][0].parameters()])
     # print([param.grad.data for param in model.parameters()])
