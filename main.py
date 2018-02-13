@@ -18,8 +18,8 @@ def init_data(nsamples=400):
     for i in range(Y.shape[1]):
         Y[:, i] = utils.add_noise(Y[:, i])
 
-    x = Variable(torch.from_numpy(X), requires_grad=False).type(torch.FloatTensor)
-    y = Variable(torch.from_numpy(Y), requires_grad=False).type(torch.FloatTensor)
+    x = Variable(torch.from_numpy(X), requires_grad=True).type(torch.FloatTensor)
+    y = Variable(torch.from_numpy(Y), requires_grad=True).type(torch.FloatTensor)
     return x, y, W
 
 
