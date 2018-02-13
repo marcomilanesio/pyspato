@@ -111,9 +111,9 @@ def main(sc, num_partitions=4):
     full = parts.zip(rdd_models).map(initialize).cache()
 
     gradients = full.map(lambda x: x[2]['gradients'][0]).collect()
-    g_sum = gradients_sum(gradients)
+    new_gradient = Variable(gradients_sum(gradients))
+    print(type(new_gradient), new_gradient.size())
 
-    # print([x.size() for x in gradients])
 
     # test = torch.stack(gradients, dim=0)
     # print(test.size())
