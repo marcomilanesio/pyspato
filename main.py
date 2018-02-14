@@ -19,8 +19,8 @@ def prepare_input(nsamples=400):
     for i in range(Y.shape[1]):
         Y[:, i] = utils.add_noise(Y[:, i])
 
-    x = Variable(torch.from_numpy(X), requires_grad=True).type(torch.FloatTensor)
-    y = Variable(torch.from_numpy(Y), requires_grad=True).type(torch.FloatTensor)
+    x = Variable(torch.from_numpy(X), requires_grad=False).type(torch.FloatTensor)
+    y = Variable(torch.from_numpy(Y), requires_grad=False).type(torch.FloatTensor)
     print("created torch variables {} {}".format(x.size(), y.size()))
     return x, y, W
 
@@ -50,7 +50,6 @@ def create_model():
 
 
 def torch_step(x, y, model, optimizer):
-    print('torch_step')
     prediction = model(x)
     loss = linmodel.cost(y, prediction)
     optimizer.zero_grad()
@@ -59,41 +58,90 @@ def torch_step(x, y, model, optimizer):
     return model, optimizer
 
 
-def step(tup, gradient=None):
-    x = tup[0]
-    y = tup[1]
-    model = tup[2]
-    optimizer = tup[3]
-    prediction = model(x)
-    loss = linmodel.cost(y, prediction)
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-
-    # gradient = [param.grad.data for param in model.parameters()]
-
-    return x, y, model, optimizer
-    """
-    model = linmodel.LinModel(1, 5)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
-    
-    for i in range(5000):
-        prediction = model(v1)  # x = (400, 1): x1 = (200. 1). x2 = (200, 1)
-        loss = linmodel.cost(v2, prediction)
-        optimizer.zero_grad()
-        loss.backward()  # get the gradients
-
-        # sum gradients
-
-        optimizer.step()  #
-    return model
-    """
+# def step(tup, gradient=None):
+#     x = tup[0]
+#     y = tup[1]
+#     model = tup[2]
+#     optimizer = tup[3]
+#     prediction = model(x)
+#     loss = linmodel.cost(y, prediction)
+#     optimizer.zero_grad()
+#     loss.backward()
+#     optimizer.step()
+#
+#     # gradient = [param.grad.data for param in model.parameters()]
+#
+#     return x, y, model, optimizer
+#     """
+#     model = linmodel.LinModel(1, 5)
+#     optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+#
+#     for i in range(5000):
+#         prediction = model(v1)  # x = (400, 1): x1 = (200. 1). x2 = (200, 1)
+#         loss = linmodel.cost(v2, prediction)
+#         optimizer.zero_grad()
+#         loss.backward()  # get the gradients
+#
+#         # sum gradients
+#
+#         optimizer.step()  #
+#     return model
+#     """
 
 
 def gradients_sum(gradients):
+    # print('gradients: {}'.format(gradients))
     s = torch.stack(gradients)
     su = torch.sum(s, dim=0)
     return su
+
+
+def restore_model(tup):
+    x = tup[0]
+    y = tup[1]
+    d = tup[2]
+    model, optimizer = create_model()
+    model.load_state_dict(d['model'])
+    optimizer.load_state_dict(d['optimizer'])
+    model.eval()
+
+    model, optimizer = torch_step(x, y, model, optimizer)
+    # return [p for p in model.parameters()]
+    state = save_state(model, optimizer)
+    return x, y, state
+
+
+def run_loops(tup):
+    x = tup[0]
+    y = tup[1]
+    d = tup[2]
+    model, optimizer = create_model()
+    model.load_state_dict(d['model'])
+    optimizer.load_state_dict(d['optimizer'])
+    model.eval()
+    for i in range(1000):
+        model, optimizer = torch_step(x, y, model, optimizer)
+    return model
+
+# def restore_model(new_gradient):
+#
+#     def _restore_model(tup):
+#         x = tup[0]
+#         y = tup[1]
+#         d = tup[2]
+#         model, optimizer = create_model()
+#         model.load_state_dict(d['model'])
+#         optimizer.load_state_dict(d['optimizer'])
+#         model.eval()
+#         print("_restore_model inner: ", [param.data for param in model.parameters()])
+#         # model.linear.weight.register_hook(lambda grad: new_gradient)
+#
+#         model, optimizer = torch_step(x, y, model, optimizer)
+#         # return [p for p in model.parameters()]
+#         state = save_state(model, optimizer)
+#         return x, y, state
+#
+#     return _restore_model
 
 
 def main(sc, num_partitions=4):
@@ -108,26 +156,33 @@ def main(sc, num_partitions=4):
 
     parts = rdd_x.zip(rdd_y)  # [((100x1), (5x100)), ...]
 
+    # <'torch.autograd.variable.Variable'>, < class 'torch.autograd.variable.Variable' >, < class 'dict' >
     full = parts.zip(rdd_models).map(initialize).cache()
 
-    gradients = full.map(lambda x: x[2]['gradients'][0]).collect()
-    new_gradient = Variable(gradients_sum(gradients))
-    print(type(new_gradient), new_gradient.size())
+    # gradients = full.map(lambda j: j[2]['gradients'][0]).collect()
+    # new_gradient = Variable(gradients_sum(gradients))
 
+    # print('round 0')
+    # print(type(new_gradient), new_gradient.size())
+    # print(new_gradient)
 
-    # test = torch.stack(gradients, dim=0)
-    # print(test.size())
+    full = full.map(run_loops)
 
-    # print([param.grad.data for param in test[1][0].parameters()])
-    # print([param.grad.data for param in model.parameters()])
+    # for i in range(100):
+    #     full = full.map(restore_model)
+    #     # full = full.map(restore_model(new_gradient))
+    #     # grads = full.map(lambda x: x[2]['gradients'][0]).collect()
+    #     # new_gradient = Variable(gradients_sum(grads))
+    #     # print('round {}'.format(i))
+    #     # print(type(new_g), new_g.size())
+    #     # print(new_g)
+
+    result = full.collect()
+    for m in result:
+        print([param.data for param in m.parameters()])
+    print('target: \n{}'.format(W))
+
     return None, W
-    r = parts.take(1)
-    m = r[0][2]
-    print([param.grad.data for param in m.parameters()])
-    # print([type(x) for x in parts.take(1)[0]])
-
-    exit(0)
-    return model, W
 
 if __name__ == '__main__':
     sc = SparkContext(appName='pyspato')
