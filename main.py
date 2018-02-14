@@ -123,25 +123,25 @@ def run_loops(tup):
         model, optimizer = torch_step(x, y, model, optimizer)
     return model
 
-# def restore_model(new_gradient):
-#
-#     def _restore_model(tup):
-#         x = tup[0]
-#         y = tup[1]
-#         d = tup[2]
-#         model, optimizer = create_model()
-#         model.load_state_dict(d['model'])
-#         optimizer.load_state_dict(d['optimizer'])
-#         model.eval()
-#         print("_restore_model inner: ", [param.data for param in model.parameters()])
-#         # model.linear.weight.register_hook(lambda grad: new_gradient)
-#
-#         model, optimizer = torch_step(x, y, model, optimizer)
-#         # return [p for p in model.parameters()]
-#         state = save_state(model, optimizer)
-#         return x, y, state
-#
-#     return _restore_model
+def restore_model_w_gradient(new_gradient):
+
+    def _restore_model(tup):
+        x = tup[0]
+        y = tup[1]
+        d = tup[2]
+        model, optimizer = create_model()
+        model.load_state_dict(d['model'])
+        optimizer.load_state_dict(d['optimizer'])
+        model.eval()
+        print("_restore_model inner: ", [param.data for param in model.parameters()])
+        # model.linear.weight.register_hook(lambda grad: new_gradient)
+
+        model, optimizer = torch_step(x, y, model, optimizer)
+        # return [p for p in model.parameters()]
+        state = save_state(model, optimizer)
+        return x, y, state
+
+    return _restore_model
 
 
 def main(sc, num_partitions=4):
@@ -159,28 +159,34 @@ def main(sc, num_partitions=4):
     # <'torch.autograd.variable.Variable'>, < class 'torch.autograd.variable.Variable' >, < class 'dict' >
     full = parts.zip(rdd_models).map(initialize).cache()
 
-    # gradients = full.map(lambda j: j[2]['gradients'][0]).collect()
-    # new_gradient = Variable(gradients_sum(gradients))
+    gradients = full.map(lambda j: j[2]['gradients'][0]).collect()
+    new_gradient = Variable(gradients_sum(gradients))
 
-    # print('round 0')
-    # print(type(new_gradient), new_gradient.size())
-    # print(new_gradient)
 
-    full = full.map(run_loops)
+    # full = full.map(run_loops)
+    # result = full.collect()
+    # for m in result:
+    #     print([param.data for param in m.parameters()])
+    # print('target: \n{}'.format(W))
 
-    # for i in range(100):
-    #     full = full.map(restore_model)
-    #     # full = full.map(restore_model(new_gradient))
-    #     # grads = full.map(lambda x: x[2]['gradients'][0]).collect()
-    #     # new_gradient = Variable(gradients_sum(grads))
+    for i in range(100):
+        print('round {}'.format(i))
+        # full = full.map(restore_model)
+        full = full.map(restore_model_w_gradient(new_gradient))
+        grads = full.map(lambda x: x[2]['gradients'][0]).collect()
+        new_gradient = Variable(gradients_sum(grads))
     #     # print('round {}'.format(i))
     #     # print(type(new_g), new_g.size())
     #     # print(new_g)
-
-    result = full.collect()
-    for m in result:
+    states = full.map(lambda x: x[2]['model']).collect()
+    for s in states:
+        m = linmodel.LinModel(1, 5)
+        m.load_state_dict(s)
+        m.eval()
         print([param.data for param in m.parameters()])
     print('target: \n{}'.format(W))
+
+
 
     return None, W
 
