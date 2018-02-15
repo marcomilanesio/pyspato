@@ -35,9 +35,11 @@ def save_state(model, optimizer):
     return state
 
 
-def initialize(tup):
-    x, y = tup[0]   # data
-    m, o = tup[1]   # models and optimizer
+def initialize(state):
+
+    def _initialize(tup):
+        x, y = tup[0]   # data
+        m, o = tup[1]   # models and optimizer
     model, optimizer = torch_step(x, y, m, o)
     state = save_state(model, optimizer)
     return x, y, state
@@ -49,13 +51,28 @@ def create_model():
     return model, optimizer
 
 
-def torch_step(x, y, model, optimizer):
-    prediction = model(x)
-    loss = linmodel.cost(y, prediction)
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-    return model, optimizer
+def torch_step(state):
+
+    def _torch_step(tup):
+        x = tup[0]
+        y = tup[1]
+        m, o = create_model()
+        m.load_state_dict(state['model'])
+        o.load_state_dict(state['optimizer'])
+        gradients = state['gradients']
+        if all(gradients):
+            su = gradients_sum(gradients)
+            model.linear.weight.register_hook(lambda grad: su)
+
+        prediction = m(x)
+        loss = linmodel.cost(y, prediction)
+        o.zero_grad()
+        loss.backward()
+        o.step()
+        new_state = save_state(m, o)
+        return new_state
+
+    return _torch_step
 
 
 # def step(tup, gradient=None):
@@ -96,32 +113,33 @@ def gradients_sum(gradients):
     return su
 
 
-def restore_model(tup):
-    x = tup[0]
-    y = tup[1]
-    d = tup[2]
-    model, optimizer = create_model()
-    model.load_state_dict(d['model'])
-    optimizer.load_state_dict(d['optimizer'])
-    model.eval()
+# def restore_model(tup):
+#     x = tup[0]
+#     y = tup[1]
+#     d = tup[2]
+#     model, optimizer = create_model()
+#     model.load_state_dict(d['model'])
+#     optimizer.load_state_dict(d['optimizer'])
+#     model.eval()
+#
+#     model, optimizer = torch_step(x, y, model, optimizer)
+#     # return [p for p in model.parameters()]
+#     state = save_state(model, optimizer)
+#     return x, y, state
 
-    model, optimizer = torch_step(x, y, model, optimizer)
-    # return [p for p in model.parameters()]
-    state = save_state(model, optimizer)
-    return x, y, state
 
+# def run_loops(tup):
+#     x = tup[0]
+#     y = tup[1]
+#     d = tup[2]
+#     model, optimizer = create_model()
+#     model.load_state_dict(d['model'])
+#     optimizer.load_state_dict(d['optimizer'])
+#     model.eval()
+#     for i in range(1000):
+#         model, optimizer = torch_step(x, y, model, optimizer)
+#     return model
 
-def run_loops(tup):
-    x = tup[0]
-    y = tup[1]
-    d = tup[2]
-    model, optimizer = create_model()
-    model.load_state_dict(d['model'])
-    optimizer.load_state_dict(d['optimizer'])
-    model.eval()
-    for i in range(1000):
-        model, optimizer = torch_step(x, y, model, optimizer)
-    return model
 
 def restore_model_w_gradient(new_gradient):
 
@@ -149,14 +167,18 @@ def main(sc, num_partitions=4):
     parts_x = list(torch.split(x, int(x.size()[0] / num_partitions)))
     parts_y = list(torch.split(y, int(x.size()[0] / num_partitions), 1))
 
-    rdd_models = sc.parallelize([create_model() for _ in range(num_partitions)]).repartition(num_partitions)
+    model, optimizer = create_model()
+    state = save_state(model, optimizer)
 
     rdd_x = sc.parallelize(parts_x).repartition(num_partitions)
     rdd_y = sc.parallelize(parts_y).repartition(num_partitions)
 
     parts = rdd_x.zip(rdd_y)  # [((100x1), (5x100)), ...]
 
-    # <'torch.autograd.variable.Variable'>, < class 'torch.autograd.variable.Variable' >, < class 'dict' >
+
+    gradients = parts.map(torch_step(state))
+
+    return None, W
     full = parts.zip(rdd_models).map(initialize).cache()
 
     gradients = full.map(lambda j: j[2]['gradients'][0]).collect()
