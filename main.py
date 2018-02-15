@@ -9,12 +9,16 @@ from pyspark import SparkContext
 
 NUM_ITERATIONS = 600
 
+N = 1000   # 50 - 500 - 1000 - 5000
+dx = 1   # log fino a 1M (0-6)
+dy = 5
 
-def prepare_input(nsamples=400):
-    Xold = np.linspace(0, 1000, nsamples).reshape([nsamples, 1])
+
+def prepare_input(nsamples=N):
+    Xold = np.linspace(0, 1000, nsamples * dx).reshape([nsamples, dx])
     X = utils.standardize(Xold)
 
-    W = np.random.randint(1, 10, size=(5, 1))
+    W = np.random.randint(1, 10, size=(dy, dx))
 
     Y = W.dot(X.T)  # target
 
@@ -39,7 +43,7 @@ def save_model_state(model):
 
 
 def create_model():
-    return linmodel.LinModel(1, 5)
+    return linmodel.LinModel(dx, dy)
 
 
 def torch_step(state):
@@ -95,7 +99,7 @@ def local_step(x, y, model, optimizer):
     return model, optimizer
 
 
-def main(sc, num_partitions=2):
+def main(sc, num_partitions=10):
     x, y, W = prepare_input()
     local_result = run_local(x, y, W)
     for k, v in local_result.items():
@@ -134,47 +138,13 @@ def main(sc, num_partitions=2):
         # print(gradients)
         # print(models[0])
 
-    final_model = linmodel.LinModel(1, 5)
+    final_model = linmodel.LinModel(dx, dy)
     final_model.load_state_dict(models[0])
     final_model.eval()
     print('\n')
     print([param.data for param in final_model.parameters()])
     return None, W
 
-
-
-    full = parts.zip(rdd_models).map(initialize).cache()
-
-    gradients = full.map(lambda j: j[2]['gradients'][0]).collect()
-    new_gradient = Variable(gradients_sum(gradients))
-
-
-    # full = full.map(run_loops)
-    # result = full.collect()
-    # for m in result:
-    #     print([param.data for param in m.parameters()])
-    # print('target: \n{}'.format(W))
-
-    for i in range(100):
-        print('round {}'.format(i))
-        # full = full.map(restore_model)
-        full = full.map(restore_model_w_gradient(new_gradient))
-        grads = full.map(lambda x: x[2]['gradients'][0]).collect()
-        new_gradient = Variable(gradients_sum(grads))
-    #     # print('round {}'.format(i))
-    #     # print(type(new_g), new_g.size())
-    #     # print(new_g)
-    states = full.map(lambda x: x[2]['model']).collect()
-    for s in states:
-        m = linmodel.LinModel(1, 5)
-        m.load_state_dict(s)
-        m.eval()
-        print([param.data for param in m.parameters()])
-    print('target: \n{}'.format(W))
-
-
-
-    return None, W
 
 if __name__ == '__main__':
     sc = SparkContext(appName='pyspato')
