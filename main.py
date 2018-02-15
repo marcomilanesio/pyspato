@@ -25,12 +25,13 @@ def prepare_input(nsamples=400):
     return x, y, W
 
 
-def save_state(model, optimizer):
+def save_state(model):
     model_dict = model.state_dict()
-    optimizer_dict = optimizer.state_dict()
-    gradients = [param.grad.data for param in model.parameters()]
+    try:
+        gradients = [param.grad.data for param in model.parameters()]
+    except AttributeError:
+        gradients = None
     state = {'model': model_dict,
-             'optimizer': optimizer_dict,
              'gradients': gradients}
     return state
 
@@ -47,8 +48,8 @@ def initialize(state):
 
 def create_model():
     model = linmodel.LinModel(1, 5)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
-    return model, optimizer
+    # optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+    return model  # , optimizer
 
 
 def torch_step(state):
@@ -162,19 +163,45 @@ def restore_model_w_gradient(new_gradient):
     return _restore_model
 
 
+def run_local(x, y, W):
+    m = create_model()
+    o = torch.optim.Adam(m.parameters(), lr=1e-2)
+    for i in range(5000):
+        m, o = local_step(x, y, m, o)
+
+    res = {'param.data': [param.data for param in m.parameters()],
+           'W': W}
+    return res
+
+
+def local_step(x, y, model, optimizer):
+    prediction = model(x)  # x = (400, 1): x1 = (200. 1). x2 = (200, 1)
+    loss = linmodel.cost(y, prediction)
+    optimizer.zero_grad()
+    loss.backward()  # get the gradients
+    optimizer.step()  #
+    return model, optimizer
+
+
 def main(sc, num_partitions=4):
     x, y, W = prepare_input()
+    local_result = run_local(x, y, W)
+    # for k, v in local_result.items():
+    #     print(k, v)
+
     parts_x = list(torch.split(x, int(x.size()[0] / num_partitions)))
     parts_y = list(torch.split(y, int(x.size()[0] / num_partitions), 1))
 
-    model, optimizer = create_model()
-    state = save_state(model, optimizer)
+    model = create_model()
+    state = save_state(model)
 
     rdd_x = sc.parallelize(parts_x).repartition(num_partitions)
     rdd_y = sc.parallelize(parts_y).repartition(num_partitions)
 
     parts = rdd_x.zip(rdd_y)  # [((100x1), (5x100)), ...]
 
+
+    return None, W
 
     gradients = parts.map(torch_step(state))
 
