@@ -7,6 +7,8 @@ import utils
 
 from pyspark import SparkContext
 
+NUM_ITERATIONS = 100
+
 
 def prepare_input(nsamples=400):
     Xold = np.linspace(0, 1000, nsamples).reshape([nsamples, 1])
@@ -25,7 +27,7 @@ def prepare_input(nsamples=400):
     return x, y, W
 
 
-def save_state(model):
+def save_model_state(model):
     model_dict = model.state_dict()
     try:
         gradients = [param.grad.data for param in model.parameters()]
@@ -36,20 +38,8 @@ def save_state(model):
     return state
 
 
-def initialize(state):
-
-    def _initialize(tup):
-        x, y = tup[0]   # data
-        m, o = tup[1]   # models and optimizer
-    model, optimizer = torch_step(x, y, m, o)
-    state = save_state(model, optimizer)
-    return x, y, state
-
-
 def create_model():
-    model = linmodel.LinModel(1, 5)
-    # optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
-    return model  # , optimizer
+    return linmodel.LinModel(1, 5)
 
 
 def torch_step(state):
@@ -57,54 +47,24 @@ def torch_step(state):
     def _torch_step(tup):
         x = tup[0]
         y = tup[1]
-        m, o = create_model()
+        m = create_model()
         m.load_state_dict(state['model'])
-        o.load_state_dict(state['optimizer'])
+        m.eval()
+        o = torch.optim.Adam(m.parameters(), lr=1e-2)
         gradients = state['gradients']
-        if all(gradients):
-            su = gradients_sum(gradients)
-            model.linear.weight.register_hook(lambda grad: su)
+        if gradients is not None:
+            # su = gradients_sum(gradients)
+            m.linear.weight.register_hook(lambda grad: gradients)
 
         prediction = m(x)
         loss = linmodel.cost(y, prediction)
         o.zero_grad()
         loss.backward()
         o.step()
-        new_state = save_state(m, o)
+        new_state = save_model_state(m)
         return new_state
 
     return _torch_step
-
-
-# def step(tup, gradient=None):
-#     x = tup[0]
-#     y = tup[1]
-#     model = tup[2]
-#     optimizer = tup[3]
-#     prediction = model(x)
-#     loss = linmodel.cost(y, prediction)
-#     optimizer.zero_grad()
-#     loss.backward()
-#     optimizer.step()
-#
-#     # gradient = [param.grad.data for param in model.parameters()]
-#
-#     return x, y, model, optimizer
-#     """
-#     model = linmodel.LinModel(1, 5)
-#     optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
-#
-#     for i in range(5000):
-#         prediction = model(v1)  # x = (400, 1): x1 = (200. 1). x2 = (200, 1)
-#         loss = linmodel.cost(v2, prediction)
-#         optimizer.zero_grad()
-#         loss.backward()  # get the gradients
-#
-#         # sum gradients
-#
-#         optimizer.step()  #
-#     return model
-#     """
 
 
 def gradients_sum(gradients):
@@ -114,59 +74,10 @@ def gradients_sum(gradients):
     return su
 
 
-# def restore_model(tup):
-#     x = tup[0]
-#     y = tup[1]
-#     d = tup[2]
-#     model, optimizer = create_model()
-#     model.load_state_dict(d['model'])
-#     optimizer.load_state_dict(d['optimizer'])
-#     model.eval()
-#
-#     model, optimizer = torch_step(x, y, model, optimizer)
-#     # return [p for p in model.parameters()]
-#     state = save_state(model, optimizer)
-#     return x, y, state
-
-
-# def run_loops(tup):
-#     x = tup[0]
-#     y = tup[1]
-#     d = tup[2]
-#     model, optimizer = create_model()
-#     model.load_state_dict(d['model'])
-#     optimizer.load_state_dict(d['optimizer'])
-#     model.eval()
-#     for i in range(1000):
-#         model, optimizer = torch_step(x, y, model, optimizer)
-#     return model
-
-
-def restore_model_w_gradient(new_gradient):
-
-    def _restore_model(tup):
-        x = tup[0]
-        y = tup[1]
-        d = tup[2]
-        model, optimizer = create_model()
-        model.load_state_dict(d['model'])
-        optimizer.load_state_dict(d['optimizer'])
-        model.eval()
-        print("_restore_model inner: ", [param.data for param in model.parameters()])
-        # model.linear.weight.register_hook(lambda grad: new_gradient)
-
-        model, optimizer = torch_step(x, y, model, optimizer)
-        # return [p for p in model.parameters()]
-        state = save_state(model, optimizer)
-        return x, y, state
-
-    return _restore_model
-
-
 def run_local(x, y, W):
     m = create_model()
     o = torch.optim.Adam(m.parameters(), lr=1e-2)
-    for i in range(5000):
+    for i in range(NUM_ITERATIONS):
         m, o = local_step(x, y, m, o)
 
     res = {'param.data': [param.data for param in m.parameters()],
@@ -183,29 +94,54 @@ def local_step(x, y, model, optimizer):
     return model, optimizer
 
 
-def main(sc, num_partitions=4):
+def main(sc, num_partitions=2):
     x, y, W = prepare_input()
     local_result = run_local(x, y, W)
-    # for k, v in local_result.items():
-    #     print(k, v)
+    for k, v in local_result.items():
+        print(k, v)
 
     parts_x = list(torch.split(x, int(x.size()[0] / num_partitions)))
     parts_y = list(torch.split(y, int(x.size()[0] / num_partitions), 1))
 
     model = create_model()
-    state = save_state(model)
+    state = save_model_state(model)
 
     rdd_x = sc.parallelize(parts_x).repartition(num_partitions)
     rdd_y = sc.parallelize(parts_y).repartition(num_partitions)
 
     parts = rdd_x.zip(rdd_y)  # [((100x1), (5x100)), ...]
 
+    for i in range(NUM_ITERATIONS):
+        print('.', end='')
+        intermediate = (parts.map(torch_step(state))
+                        .map(lambda j: (j['model'], j['gradients'][0]))
+                        .collect()
+                        )
+        models = [j[0] for j in intermediate]
+        gradients = [j[1] for j in intermediate]
 
+        state = {'model': models[0],
+                 'gradients': Variable(gradients_sum(gradients))}
+
+        # if all(torch.equal(x['linear.weight'], models[0]['linear.weight']) for x in models):
+        #     state = {'model': models[0],
+        #              'gradients': Variable(gradients_sum(gradients))}
+        # else:
+        #     state = {'model': models[0],
+        #              'gradients': Variable(gradients_sum(gradients))}
+
+        # print(gradients)
+        # print(models[0])
+
+    final_model = linmodel.LinModel(1, 5)
+    final_model.load_state_dict(models[0])
+    final_model.eval()
+    print('\n')
+    print([param.data for param in final_model.parameters()])
     return None, W
 
-    gradients = parts.map(torch_step(state))
 
-    return None, W
+
     full = parts.zip(rdd_models).map(initialize).cache()
 
     gradients = full.map(lambda j: j[2]['gradients'][0]).collect()
