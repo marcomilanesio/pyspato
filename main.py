@@ -7,7 +7,7 @@ import utils
 
 from pyspark import SparkContext
 
-NUM_ITERATIONS = 100
+NUM_ITERATIONS = 600
 
 
 def prepare_input(nsamples=400):
@@ -52,9 +52,10 @@ def torch_step(state):
         m.eval()
         o = torch.optim.Adam(m.parameters(), lr=1e-2)
         gradients = state['gradients']
-        if gradients is not None:
-            # su = gradients_sum(gradients)
-            m.linear.weight.register_hook(lambda grad: gradients)
+        print(gradients)
+        # if gradients is not None:
+        #     print(gradients)
+        #     m.linear.weight.register_hook(lambda grad: gradients)
 
         prediction = m(x)
         loss = linmodel.cost(y, prediction)
