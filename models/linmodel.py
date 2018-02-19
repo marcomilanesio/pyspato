@@ -13,6 +13,10 @@ def cost(target, predicted):
     return cost
 
 
+def mse(input, target):
+    return nn.functional.mse_loss(input, target)
+
+
 class LinModel(nn.Module):
     def __init__(self, in_size, out_size):
         super(LinModel, self).__init__()  # always call parent's init
