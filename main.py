@@ -5,13 +5,18 @@ from torch.autograd import Variable
 from models import linmodel
 import utils
 
+NUM_ITERATIONS = 600
 
-def init_data(nsamples=400):
-    n = nsamples  # TO SCALE
-    Xold = np.linspace(0, 1000, n).reshape([n, 1])
+N = 1000  # 50 - 500 - 1000 - 5000
+dx = 1  # log fino a 1M (0-6)
+dy = 5
+
+
+def init_data(nsamples=N):
+    Xold = np.linspace(0, 1000, nsamples * dx).reshape([nsamples, dx])
     X = utils.standardize(Xold)
 
-    W = np.random.randint(1, 10, size=(5, 1))
+    W = np.random.randint(1, 10, size=(dy, dx))
 
     Y = W.dot(X.T)  # target
 
@@ -25,7 +30,7 @@ def init_data(nsamples=400):
 
 
 def instantiate_model(x, y):
-    model = linmodel.LinModel(1, 5)
+    model = linmodel.LinModel(dx, dy)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
     return model, optimizer
 
@@ -43,7 +48,7 @@ def step(x, y, model, optimizer):
 if __name__ == "__main__":
     x, y, w = init_data()
     m, o = instantiate_model(x, y)
-    for i in range(5000):
+    for i in range(NUM_ITERATIONS):
         m, o = step(x, y, m, o)
 
     r = np.array([param.data for param in m.parameters()])
