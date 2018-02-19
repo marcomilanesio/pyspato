@@ -5,14 +5,8 @@ from torch.autograd import Variable
 from models import linmodel
 import utils
 
-NUM_ITERATIONS = 600
 
-N = 1000  # 50 - 500 - 1000 - 5000
-dx = 1  # log fino a 1M (0-6)
-dy = 5
-
-
-def init_data(nsamples=N):
+def init_data(nsamples, dx, dy):
     Xold = np.linspace(0, 1000, nsamples * dx).reshape([nsamples, dx])
     X = utils.standardize(Xold)
 
@@ -29,7 +23,7 @@ def init_data(nsamples=N):
     return x, y, w
 
 
-def instantiate_model(x, y):
+def instantiate_model(dx, dy):
     model = linmodel.LinModel(dx, dy)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
     return model, optimizer
@@ -45,19 +39,22 @@ def step(x, y, model, optimizer):
     optimizer.step()  #
     return model, optimizer
 
+
+def get_mse(m, w):
+    r = np.array([param.data for param in m.parameters()])
+    res = Variable(r[0])
+    return linmodel.mse(res, w)
+
 if __name__ == "__main__":
-    x, y, w = init_data()
-    m, o = instantiate_model(x, y)
+    NUM_ITERATIONS = 600
+
+    N = 50  # 50 - 500 - 1000 - 5000
+    dx = 10  # log fino a 1M (0-6)
+    dy = 5
+
+    x, y, w = init_data(N, dx, dy)
+    m, o = instantiate_model(dx, dy)
     for i in range(NUM_ITERATIONS):
         m, o = step(x, y, m, o)
 
-    r = np.array([param.data for param in m.parameters()])
-    res = Variable(r[0])
-
-    # print(w.size(), res.size())
-    # print(type(w), type(res))
-    # print(w, res)
-    #
-    # m = torch.sum((w - res)**2)
-    # print(m)
-    print(linmodel.mse(res, w))
+    print(get_mse(m, w))
