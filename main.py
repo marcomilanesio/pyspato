@@ -70,7 +70,6 @@ def main(num_partitions=4):
     model = create_model()
 
     for i in range(NUM_ITERATIONS):
-        print('.', end='')
         model = local_step(x, y, model)
 
     return model, W
