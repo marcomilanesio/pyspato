@@ -40,8 +40,8 @@ def save_model_state(model):
     return state
 
 
-def create_model():
-    return linmodel.LinModel(dx, dy)
+def create_model(insize, outsize):
+    return linmodel.LinModel(insize, outsize)
 
 
 def gradients_sum(gradients):
@@ -67,7 +67,7 @@ def main(num_partitions=4):
     # parts_x = list(torch.split(x, int(x.size()[0] / num_partitions)))
     # parts_y = list(torch.split(y, int(x.size()[0] / num_partitions), 1))
 
-    model = create_model()
+    model = create_model(dx, dy)
 
     for i in range(NUM_ITERATIONS):
         model = local_step(x, y, model)
