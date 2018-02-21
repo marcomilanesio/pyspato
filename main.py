@@ -4,7 +4,9 @@ from torch.autograd import Variable
 
 from models import linmodel
 import utils
-import threading
+from multiprocessing import Pool
+from functools import partial
+
 
 NUM_ITERATIONS = 1500
 
@@ -67,7 +69,8 @@ def update_model(model, g):
     return model
 
 
-def run(model, x, y):
+def run(tup, model):
+    x, y = tup
     model = local_step(x, y, model)
     local_grad = Variable([param.grad.data for param in model.parameters()][0])
     return model, local_grad
@@ -82,26 +85,29 @@ def main(num_partitions=4):
     q = [(i, j) for i, j in zip(parts_x, parts_y)]
     model = create_model(dx, dy)
 
-    x1, y1 = q[0]
-    x2, y2 = q[1]
-    x3, y3 = q[2]
-    x4, y4 = q[3]
+    p = Pool(4)
+
     for _ in range(250):
-        tmp = []
-        model1, t1 = run(model, x1, y1)
-        tmp.append(t1)
+        data = p.map(partial(run, model=model), q)
+        tmp = [x[1] for x in data]
+        model = data[0][0]
 
-        model2, t2 = run(model, x2, y2)
-        tmp.append(t2)
 
-        model3, t3 = run(model, x3, y3)
-        tmp.append(t3)
-
-        model4, t4 = run(model, x4, y4)
-        tmp.append(t4)
+        # tmp = []
+        # model1, t1 = run(q[0], model)
+        # tmp.append(t1)
+        #
+        # model2, t2 = run(q[1], model)
+        # tmp.append(t2)
+        #
+        # model3, t3 = run(q[2], model)
+        # tmp.append(t3)
+        #
+        # model4, t4 = run(q[3], model)
+        # tmp.append(t4)
 
         s = gradients_sum(tmp)
-        model = update_model(model1, s)
+        model = update_model(model, s)
 
     return model, W
 
