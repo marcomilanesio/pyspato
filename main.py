@@ -4,15 +4,18 @@ from torch.autograd import Variable
 
 from models import linmodel
 import utils
-from multiprocessing import Pool
+# from multiprocessing import Pool, Manager
 from functools import partial
-
+from concurrent import futures
+import multiprocessing
 
 NUM_ITERATIONS = 1500
 
 N = 400   # 50 - 500 - 1000 - 5000
 dx = 1   # log fino a 1M (0-6)
 dy = 5
+
+end = -1
 
 
 def prepare_input(nsamples=N):
@@ -28,19 +31,9 @@ def prepare_input(nsamples=N):
 
     x = Variable(torch.from_numpy(X), requires_grad=False).type(torch.FloatTensor)
     y = Variable(torch.from_numpy(Y), requires_grad=False).type(torch.FloatTensor)
+    w = Variable(torch.from_numpy(W), requires_grad=True).type(torch.FloatTensor)
     print("created torch variables {} {}".format(x.size(), y.size()))
-    return x, y, W
-
-
-# def save_model_state(model):
-#     model_dict = model.state_dict()
-#     try:
-#         gradients = [param.grad.data for param in model.parameters()]
-#     except AttributeError:
-#         gradients = None
-#     state = {'model': model_dict,
-#              'gradients': gradients}
-#     return state
+    return x, y, w
 
 
 def create_model(insize, outsize):
@@ -76,6 +69,12 @@ def run(tup, model):
     return model, local_grad
 
 
+def get_mse(m, w):
+    r = np.array([param.data for param in m.parameters()])
+    res = Variable(r[0])
+    return linmodel.mse(res, w).data.numpy()[0]
+
+
 def main(num_partitions=4):
     x, y, W = prepare_input()
 
@@ -85,34 +84,22 @@ def main(num_partitions=4):
     q = [(i, j) for i, j in zip(parts_x, parts_y)]
     model = create_model(dx, dy)
 
-    p = Pool(4)
-
-    for _ in range(250):
-        data = p.map(partial(run, model=model), q)
-        tmp = [x[1] for x in data]
-        model = data[0][0]
-
-
-        # tmp = []
-        # model1, t1 = run(q[0], model)
-        # tmp.append(t1)
-        #
-        # model2, t2 = run(q[1], model)
-        # tmp.append(t2)
-        #
-        # model3, t3 = run(q[2], model)
-        # tmp.append(t3)
-        #
-        # model4, t4 = run(q[3], model)
-        # tmp.append(t4)
-
-        s = gradients_sum(tmp)
-        model = update_model(model, s)
+    with futures.ProcessPoolExecutor(12) as executor:
+        for i in range(300):
+            jobs = [executor.submit(run, chunk, model) for chunk in q]
+            local_gradients = []
+            local_models = []
+            for comp_job in futures.as_completed(jobs):
+                local_gradients.append(comp_job.result()[1])
+                local_models.append(comp_job.result()[0])
+            new_gradient = gradients_sum(local_gradients)
+            model = update_model(local_models[0], new_gradient)
 
     return model, W
 
 
 if __name__ == '__main__':
     model, W = main()
-    print([param.data for param in model.parameters()])
-    print(W)
+    print("mse: ", get_mse(model, W))
+    # print([param.data for param in model.parameters()])
+    # print(W)
