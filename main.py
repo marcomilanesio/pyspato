@@ -32,7 +32,7 @@ def prepare_input(nsamples=N):
     x = Variable(torch.from_numpy(X), requires_grad=False).type(torch.FloatTensor)
     y = Variable(torch.from_numpy(Y), requires_grad=False).type(torch.FloatTensor)
     w = Variable(torch.from_numpy(W), requires_grad=True).type(torch.FloatTensor)
-    print("created torch variables {} {}".format(x.size(), y.size()))
+    # print("created torch variables {} {}".format(x.size(), y.size()))
     return x, y, w
 
 
