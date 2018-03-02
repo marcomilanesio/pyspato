@@ -18,8 +18,8 @@ dy = 5
 end = -1
 
 
-def prepare_input(nsamples=N):
-    Xold = np.linspace(0, 1000, nsamples * dx).reshape([nsamples, dx])
+def prepare_input(sample_size, dx, dy):
+    Xold = np.linspace(0, 1000, sample_size * dx).reshape([sample_size, dx])
     X = utils.standardize(Xold)
 
     W = np.random.randint(1, 10, size=(dy, dx))
@@ -75,8 +75,8 @@ def get_mse(m, w):
     return linmodel.mse(res, w).data.numpy()[0]
 
 
-def main(num_partitions=4):
-    x, y, W = prepare_input()
+def main(sample_size, dx, dy, num_partitions):
+    x, y, W = prepare_input(sample_size, dx, dy)
 
     parts_x = list(torch.split(x, int(x.size()[0] / num_partitions)))
     parts_y = list(torch.split(y, int(x.size()[0] / num_partitions), 1))
@@ -99,7 +99,12 @@ def main(num_partitions=4):
 
 
 if __name__ == '__main__':
-    model, W = main()
+    N = 400  # 50 - 500 - 1000 - 5000
+    dx = 1  # log fino a 1M (0-6)
+    dy = 5
+    npart = 4
+
+    model, W = main(sample_size=N, dx=dx, dy=dy, num_partitions=npart)
     print("mse: ", get_mse(model, W))
     # print([param.data for param in model.parameters()])
     # print(W)
