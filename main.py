@@ -48,7 +48,7 @@ def gradients_sum(gradients):
 
 
 def local_step(x, y, model):
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     prediction = model(x)  # x = (400, 1): x1 = (200. 1). x2 = (200, 1)
     loss = linmodel.cost(y, prediction)
     optimizer.zero_grad()
@@ -66,6 +66,8 @@ def run(tup, model):
     x, y = tup
     model = local_step(x, y, model)
     local_grad = Variable([param.grad.data for param in model.parameters()][0])
+    # print('{}, running on {} {}, spitting {}'.format(multiprocessing.current_process().name, x.size(), y.size(),
+    #                                                  local_grad.size()))
     return model, local_grad
 
 
@@ -84,8 +86,8 @@ def main(sample_size, dx, dy, num_partitions):
     q = [(i, j) for i, j in zip(parts_x, parts_y)]
     model = create_model(dx, dy)
 
-    with futures.ProcessPoolExecutor(12) as executor:
-        for i in range(300):
+    with futures.ProcessPoolExecutor(10) as executor:
+        for i in range(1500):
             jobs = [executor.submit(run, chunk, model) for chunk in q]
             local_gradients = []
             local_models = []
@@ -94,15 +96,16 @@ def main(sample_size, dx, dy, num_partitions):
                 local_models.append(comp_job.result()[0])
             new_gradient = gradients_sum(local_gradients)
             model = update_model(local_models[0], new_gradient)
-
+            if i % 500 == 0:
+                print('run {}'.format(i), end='\r')
     return model, W
 
 
 if __name__ == '__main__':
-    N = 400  # 50 - 500 - 1000 - 5000
+    N = 50  # 50 - 500 - 1000 - 5000
     dx = 1  # log fino a 1M (0-6)
     dy = 5
-    npart = 4
+    npart = 25
 
     model, W = main(sample_size=N, dx=dx, dy=dy, num_partitions=npart)
     print("mse: ", get_mse(model, W))
