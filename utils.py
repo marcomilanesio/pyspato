@@ -11,5 +11,5 @@ def standardize(x):
 
 
 def add_noise(y):
-    rnd = np.random.randn(y.shape[0])
+    rnd = np.random.randn(1)
     return y + rnd
