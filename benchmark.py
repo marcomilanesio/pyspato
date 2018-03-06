@@ -32,17 +32,20 @@ def plot_scatter(model, in_, out_, scatterfname):
 
 for N in [50, 500, 1000, 5000]:
     for dx in [1, 10, 100, 1000, 10000, 100000]:
-        lossfname = "./plots/loss-{}-{}.png".format(N, dx)
-        scatterfname = "./plots/scatter-{}-{}.png".format(N, dx)
-        print("running ", N, dx)
+        t0 = time.time()
+        # lossfname = "./plots/loss-{}-{}.png".format(N, dx)
+        # scatterfname = "./plots/scatter-{}-{}.png".format(N, dx)
+        # print("running ", N, dx)
         start = time.time()
         x, y, w = main.init_data(N, dx, dy)
         m, o = main.instantiate_model(dx, dy)
-        losses = []
+        # losses = []
         for i in range(n_iterations):
             m, o, l = main.step(x, y, m, o)
-            losses.append(l)
+            # losses.append(l)
+        t1 = time.time()
 
-        plot_loss(losses, lossfname)
-        plot_scatter(m, x, y, scatterfname)
+        print("{} {} {}".format(N, dx, "%.2f" % (t1-t0)))
+        # plot_loss(losses, lossfname)
+        # plot_scatter(m, x, y, scatterfname)
 
