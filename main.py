@@ -55,8 +55,8 @@ def get_mse(m, w):
 if __name__ == "__main__":
     NUM_ITERATIONS = 10000
 
-    N = 500  # 50 - 500 - 1000 - 5000
-    dx = 1  # log fino a 1M (0-6)
+    N = 5000  # 50 - 500 - 1000 - 5000
+    dx = 10000  # log fino a 1M (0-6)
     dy = 5
 
     x, y, w = init_data(N, dx, dy)
@@ -70,12 +70,16 @@ if __name__ == "__main__":
 
     print(min(losses), max(losses))
     import matplotlib.pyplot as plt
-    plt.plot(losses)
+
+    fig, ax = plt.subplots()
+    ax.plot(losses, label='{}/{}'.format(N, dx))
+    legend = ax.legend(loc='upper right')
     plt.ylim(0, 10000)
+    plt.xlim(0, NUM_ITERATIONS)
     plt.show()
     # print(get_mse(m, w))
-    print(w)
-    print([param.data for param in m.parameters()])
+    # print(w)
+    # print([param.data for param in m.parameters()])
     pred = m(x)
     plt.scatter(pred.data.numpy(), y.data.numpy())
     plt.show()
