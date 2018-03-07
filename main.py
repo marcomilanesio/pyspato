@@ -26,8 +26,8 @@ def prepare_input(sample_size, dx, dy):
 
     Y = W.dot(X.T)  # target
 
-    for i in range(Y.shape[1]):
-        Y[:, i] = utils.add_noise(Y[:, i])
+    # for i in range(Y.shape[1]):
+    #     Y[:, i] = utils.add_noise(Y[:, i])
 
     x = Variable(torch.from_numpy(X), requires_grad=False).type(torch.FloatTensor)
     y = Variable(torch.from_numpy(Y), requires_grad=False).type(torch.FloatTensor)
@@ -71,10 +71,10 @@ def run(tup, model):
     return model, local_grad
 
 
-def get_mse(m, w):
-    r = np.array([param.data for param in m.parameters()])
-    res = Variable(r[0])
-    return linmodel.mse(res, w).data.numpy()[0]
+# def get_mse(m, w):
+#     r = np.array([param.data for param in m.parameters()])
+#     res = Variable(r[0])
+#     return linmodel.mse(res, w).data.numpy()[0]
 
 
 def main(sample_size, dx, dy, num_partitions):
@@ -102,12 +102,12 @@ def main(sample_size, dx, dy, num_partitions):
 
 
 if __name__ == '__main__':
-    N = 50  # 50 - 500 - 1000 - 5000
-    dx = 1  # log fino a 1M (0-6)
+    N = 500  # 50 - 500 - 1000 - 5000
+    dx = 10  # log fino a 1M (0-6)
     dy = 5
     npart = 25
 
     model, W = main(sample_size=N, dx=dx, dy=dy, num_partitions=npart)
-    print("mse: ", get_mse(model, W))
+
     # print([param.data for param in model.parameters()])
     # print(W)
