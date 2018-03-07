@@ -54,7 +54,7 @@ def local_step(x, y, model):
     optimizer.zero_grad()
     loss.backward()  # get the gradients
     optimizer.step()  #
-    return model
+    return model, loss.data.numpy()
 
 
 def update_model(model, g):
