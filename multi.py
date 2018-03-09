@@ -10,6 +10,7 @@ import sys
 import concurrent.futures
 import threading
 
+
 def init_data(nsamples, dx, dy):
     Xold = np.linspace(0, 1000, nsamples * dx).reshape([nsamples, dx])
     X = utils.standardize(Xold)
@@ -62,7 +63,6 @@ def run(x, y, m, o):
 
 def run_single(x, y, m, o):
     name = multiprocessing.current_process().name
-    #name = threading.current_thread().name
     m, o, l = step(x, y, m, o)
     g = Variable([param.grad.data for param in m.parameters()][0])
     return m, name, l, g
@@ -74,8 +74,37 @@ def gradients_sum(gradients):
     su = torch.sum(s, dim=0)
     return su
 
+
+def run_on_queue(parts_q, model, gradients_q, evt):
+    o = torch.optim.Adam(model.parameters(), lr=1e-2)
+    x, y = parts_q.get()
+    m, name, l, g = run_single(x, y, model, o)
+    gradients_q.put(g)
+    print(multiprocessing.current_process().name, x.size(), y.size(), g, gradients_q.qsize(), '\n')
+    evt.wait()
+
+
+def run_monolithic(x, y, w, dx, dy, NUM_ITERATIONS):
+    m, o = instantiate_model(dx, dy)
+    t0 = time.time()
+    # monolithic run
+    losses_mono = []
+    for i in range(NUM_ITERATIONS):
+        m, o, l = step(x, y, m, o)
+        losses_mono.append(l)
+    fig, ax = plt.subplots()
+    ax.plot(losses_mono)
+    plt.ylim(0, 10000)
+    plt.xlim(0, NUM_ITERATIONS)
+    fig.savefig('./plots/monolithic.png')
+    t1 = time.time()
+    print('monolithic run done in {} msec'.format("%.2f" % (1000 * (t1 - t0))))
+
+
 if __name__ == "__main__":
     import time
+    from multiprocessing import Queue
+    import torch.multiprocessing as mp
 
     NUM_ITERATIONS = 5000
     NUM_PARTITIONS = 10
@@ -84,28 +113,47 @@ if __name__ == "__main__":
     dy = 5
 
     x, y, w = init_data(N, dx, dy)
+    # run_monolithic(x, y, w, dx, dy, NUM_ITERATIONS)
+
+    mp.set_start_method('spawn')
     m, o = instantiate_model(dx, dy)
-    # t0 = time.time()
-    # # monolithic run
-    # losses_mono = []
-    # for i in range(NUM_ITERATIONS):
-    #     m, o, l = step(x, y, m, o)
-    #     losses_mono.append(l)
-    # fig, ax = plt.subplots()
-    # ax.plot(losses_mono)
-    # plt.ylim(0, 10000)
-    # plt.xlim(0, NUM_ITERATIONS)
-    # fig.savefig('./plots/monolithic.png')
-    # t1 = time.time()
-    # print('monolithic run done in {} msec'.format("%.2f" % (1000 * (t1 - t0))))
-    #
-    # # new model for the parallel part
-    # m, o = instantiate_model(dx, dy)
 
     parts_x = list(torch.split(x, int(x.size()[0] / NUM_PARTITIONS)))
     parts_y = list(torch.split(y, int(x.size()[0] / NUM_PARTITIONS), 1))
 
-    q = [(i, j) for i, j in zip(parts_x, parts_y)]
+    m.share_memory()
+
+    parts = [(i, j) for i, j in zip(parts_x, parts_y)]
+    parts_q = mp.Queue()
+    for p in parts:
+        parts_q.put(p)
+
+    models_q = mp.Queue()
+    gradients_q = mp.Queue(maxsize=10)
+
+    num_processes = 10
+    processes = []
+    evt = mp.Event()
+
+    for pid in range(num_processes):
+        p = mp.Process(target=run_on_queue, args=(parts_q, m, gradients_q, evt))
+        p.start()
+        processes.append(p)
+
+
+    while not gradients_q.empty():
+        print(gradients_q.get())
+
+    evt.set()
+
+    for p in processes:
+        p.join()
+
+
+
+    exit()
+
+
 
     losses = {}
     with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
