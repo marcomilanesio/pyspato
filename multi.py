@@ -126,9 +126,9 @@ if __name__ == "__main__":
                     except KeyError:
                         losses[name] = [lst]
                     models.append(mm)
-                    # gradients.append(local_g)
-            # m = models[0]
-            # m.linear.weight.grad = gradients_sum(gradients)
+                    gradients.append(local_g)
+            m = models[0]
+            m.linear.weight.grad = gradients_sum(gradients)
             if i % 500 == 0:
                 print(i, end='\r')
 
