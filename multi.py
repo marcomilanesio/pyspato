@@ -75,13 +75,14 @@ def gradients_sum(gradients):
     return su
 
 
-def run_on_queue(parts_q, model, gradients_q, evt):
+def run_on_queue(parts_q, model, gradients_q):
     o = torch.optim.Adam(model.parameters(), lr=1e-2)
     x, y = parts_q.get()
     m, name, l, g = run_single(x, y, model, o)
     gradients_q.put(g)
     print(multiprocessing.current_process().name, x.size(), y.size(), g, gradients_q.qsize(), '\n')
-    evt.wait()
+    # evt.wait()
+    return g
 
 
 def run_monolithic(x, y, w, dx, dy, NUM_ITERATIONS):
@@ -101,9 +102,10 @@ def run_monolithic(x, y, w, dx, dy, NUM_ITERATIONS):
     print('monolithic run done in {} msec'.format("%.2f" % (1000 * (t1 - t0))))
 
 
+
 if __name__ == "__main__":
     import time
-    from multiprocessing import Queue
+    # from multiprocessing import Queue
     import torch.multiprocessing as mp
 
     NUM_ITERATIONS = 5000
@@ -122,35 +124,35 @@ if __name__ == "__main__":
     parts_y = list(torch.split(y, int(x.size()[0] / NUM_PARTITIONS), 1))
 
     m.share_memory()
+    mngr = mp.Manager()
 
     parts = [(i, j) for i, j in zip(parts_x, parts_y)]
-    parts_q = mp.Queue()
+    parts_q = mngr.Queue()
     for p in parts:
         parts_q.put(p)
 
-    models_q = mp.Queue()
-    gradients_q = mp.Queue(maxsize=10)
+    # models_q = mp.Queue()
+    gradients_q = mngr.Queue(maxsize=10)
 
     num_processes = 10
     processes = []
-    evt = mp.Event()
+    # evt = mp.Event()
 
     for pid in range(num_processes):
-        p = mp.Process(target=run_on_queue, args=(parts_q, m, gradients_q, evt))
+        p = mp.Process(target=run_on_queue, args=(parts_q, m, gradients_q))
         p.start()
         processes.append(p)
-
-
-    while not gradients_q.empty():
-        print(gradients_q.get())
-
-    evt.set()
 
     for p in processes:
         p.join()
 
+    local_gradients = []
+    while not gradients_q.empty():
+        # print("Got:", gradients_q.get())
+        local_gradients.append(gradients_q.get())
 
-
+    new_gradient = gradients_sum(local_gradients)
+    print('new:', new_gradient)
     exit()
 
 
