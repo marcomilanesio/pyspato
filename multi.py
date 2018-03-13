@@ -75,15 +75,14 @@ def gradients_sum(gradients):
     return su
 
 
-def run_on_queue(parts_q, model, gradients_q):
+def run_on_queue(parts_q, model, gradients_q, losses_q):
     o = torch.optim.Adam(model.parameters(), lr=1e-2)
     x, y = parts_q.get()
     m, name, l, g = run_single(x, y, model, o)
     gradients_q.put(g)
-    print(multiprocessing.current_process().name, x.size(), y.size(), g, gradients_q.qsize(), '\n')
+    losses_q.put(l)
+    print(multiprocessing.current_process().name, g, l, gradients_q.qsize(), losses_q.qsize(), '\n')
     # evt.wait()
-    return g
-
 
 def run_monolithic(x, y, w, dx, dy, NUM_ITERATIONS):
     m, o = instantiate_model(dx, dy)
@@ -93,14 +92,14 @@ def run_monolithic(x, y, w, dx, dy, NUM_ITERATIONS):
     for i in range(NUM_ITERATIONS):
         m, o, l = step(x, y, m, o)
         losses_mono.append(l)
-    fig, ax = plt.subplots()
-    ax.plot(losses_mono)
-    plt.ylim(0, 10000)
-    plt.xlim(0, NUM_ITERATIONS)
-    fig.savefig('./plots/monolithic.png')
+    # fig, ax = plt.subplots()
+    # ax.plot(losses_mono)
+    # plt.ylim(0, 10000)
+    # plt.xlim(0, NUM_ITERATIONS)
+    # fig.savefig('./plots/monolithic.png')
     t1 = time.time()
     print('monolithic run done in {} msec'.format("%.2f" % (1000 * (t1 - t0))))
-
+    return losses_mono
 
 
 if __name__ == "__main__":
@@ -115,7 +114,7 @@ if __name__ == "__main__":
     dy = 5
 
     x, y, w = init_data(N, dx, dy)
-    # run_monolithic(x, y, w, dx, dy, NUM_ITERATIONS)
+    l_mono = run_monolithic(x, y, w, dx, dy, NUM_ITERATIONS)
 
     mp.set_start_method('spawn')
     m, o = instantiate_model(dx, dy)
@@ -133,18 +132,20 @@ if __name__ == "__main__":
 
     # models_q = mp.Queue()
     gradients_q = mngr.Queue(maxsize=10)
+    losses_q = mngr.Queue(maxsize=10)
 
     num_processes = 10
     processes = []
     # evt = mp.Event()
 
     for pid in range(num_processes):
-        p = mp.Process(target=run_on_queue, args=(parts_q, m, gradients_q))
+        p = mp.Process(target=run_on_queue, args=(parts_q, m, gradients_q, losses_q))
         p.start()
         processes.append(p)
 
     for p in processes:
         p.join()
+
 
     local_gradients = []
     while not gradients_q.empty():
@@ -153,34 +154,17 @@ if __name__ == "__main__":
 
     new_gradient = gradients_sum(local_gradients)
     print('new:', new_gradient)
+
+    local_losses = []
+    while not losses_q.empty():
+        local_losses.append(losses_q.get())
+
+    print(sum(local_losses), l_mono[0])
     exit()
 
 
 
-    losses = {}
-    with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
-        for i in range(NUM_ITERATIONS):
-            models = []
-            gradients = []
-            jobs = {executor.submit(run_single, t[0], t[1], m, o): t for t in q}
-            for future in concurrent.futures.as_completed(jobs):
-                res = jobs[future]
-                try:
-                    mm, name, lst, local_g = future.result()
-                    # print(name, [param.grad.data for param in mm.parameters()])
-                except Exception as exc:
-                    print('ach', res)
-                else:
-                    try:
-                        losses[name].append(lst)
-                    except KeyError:
-                        losses[name] = [lst]
-                    models.append(mm)
-                    gradients.append(local_g)
-            m = models[0]
-            m.linear.weight.grad = gradients_sum(gradients)
-            if i % 500 == 0:
-                print(i, end='\r')
+
 
     fig, axes = plt.subplots(5, 2, sharex=True, sharey=True)
     i, j = 0, 0
