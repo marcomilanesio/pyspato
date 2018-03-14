@@ -78,10 +78,15 @@ def gradients_sum(gradients):
 def run_on_queue(parts_q, model, gradients_q, losses_q):
     o = torch.optim.Adam(model.parameters(), lr=1e-2)
     x, y = parts_q.get()
+    try:
+        print('r1', multiprocessing.current_process().name, [param.grad.data for param in model.parameters()])
+    except:
+        print('r1 first')
     m, name, l, g = run_single(x, y, model, o)
     gradients_q.put(g)
     losses_q.put(l)
-    print(multiprocessing.current_process().name, g, l, gradients_q.qsize(), losses_q.qsize(), '\n')
+    parts_q.put((x, y))
+    print('r2', multiprocessing.current_process().name, g)
     # evt.wait()
 
 def run_monolithic(x, y, w, dx, dy, NUM_ITERATIONS):
@@ -107,59 +112,70 @@ if __name__ == "__main__":
     # from multiprocessing import Queue
     import torch.multiprocessing as mp
 
-    NUM_ITERATIONS = 5000
-    NUM_PARTITIONS = 10
-    N = 50  # 50 - 500 - 1000 - 5000
+    NUM_ITERATIONS = 500
+    NUM_PARTITIONS = 2
+    N = 6  # 50 - 500 - 1000 - 5000
     dx = 1  # log fino a 1M (0-6)
     dy = 5
 
     x, y, w = init_data(N, dx, dy)
     l_mono = run_monolithic(x, y, w, dx, dy, NUM_ITERATIONS)
+    exit()
 
     mp.set_start_method('spawn')
     m, o = instantiate_model(dx, dy)
 
     parts_x = list(torch.split(x, int(x.size()[0] / NUM_PARTITIONS)))
     parts_y = list(torch.split(y, int(x.size()[0] / NUM_PARTITIONS), 1))
-
+    # print('x:', x)
+    # print('y:', y)
+    #
+    # print('parts_x', parts_x)
+    # print('parts_y', parts_y)
     m.share_memory()
     mngr = mp.Manager()
 
     parts = [(i, j) for i, j in zip(parts_x, parts_y)]
+    # print('parts:', parts)
     parts_q = mngr.Queue()
     for p in parts:
         parts_q.put(p)
 
+    num_processes = NUM_PARTITIONS
+
     # models_q = mp.Queue()
-    gradients_q = mngr.Queue(maxsize=10)
-    losses_q = mngr.Queue(maxsize=10)
+    gradients_q = mngr.Queue(maxsize=num_processes)
+    losses_q = mngr.Queue(maxsize=num_processes)
 
-    num_processes = 10
-    processes = []
     # evt = mp.Event()
+    for i in range(10):
+        processes = []
+        try:
+            print('begin', [param.grad.data for param in m.parameters()])
+        except:
+            print('first run')
+        for pid in range(num_processes):
+            p = mp.Process(target=run_on_queue, args=(parts_q, m, gradients_q, losses_q))
+            p.start()
+            processes.append(p)
 
-    for pid in range(num_processes):
-        p = mp.Process(target=run_on_queue, args=(parts_q, m, gradients_q, losses_q))
-        p.start()
-        processes.append(p)
+        for p in processes:
+            p.join()
 
-    for p in processes:
-        p.join()
+        local_gradients = []
+        while not gradients_q.empty():
+            # print("Got:", gradients_q.get())
+            local_gradients.append(gradients_q.get())
 
+        new_gradient = gradients_sum(local_gradients)
+        print('new:', new_gradient)
 
-    local_gradients = []
-    while not gradients_q.empty():
-        # print("Got:", gradients_q.get())
-        local_gradients.append(gradients_q.get())
+        local_losses = []
+        while not losses_q.empty():
+            local_losses.append(losses_q.get())
+        m.linear.weight.grad = new_gradient
+        # print(sum(local_losses), l_mono[i])
 
-    new_gradient = gradients_sum(local_gradients)
-    print('new:', new_gradient)
-
-    local_losses = []
-    while not losses_q.empty():
-        local_losses.append(losses_q.get())
-
-    print(sum(local_losses), l_mono[0])
     exit()
 
 
