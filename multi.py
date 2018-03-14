@@ -39,31 +39,33 @@ def instantiate_model(dx, dy):
     return model, optimizer
 
 
-def step(x, y, model, optimizer):
+def step(x, y, model, optimizer, g=None):
     prediction = model(x)  # x = (400, 1): x1 = (200. 1). x2 = (200, 1)
     loss = linmodel.cost(y, prediction)
     optimizer.zero_grad()
     loss.backward()  # get the gradients
+    if g is not None:
+        model.linear.weight.grad = g
     # print([param.grad.data for param in model.parameters()])
     # sum gradients
     optimizer.step()  #
     return model, optimizer, loss.data.numpy()
 
 
-def run(x, y, m, o):
-    name = threading.current_thread().name
-    print('{} working on {}-{}'.format(name, x.size(), y.size()))
-    # print('{} working on {}'.format(threading.current_thread().name, [param.grad.data for param in m.parameters()]))
-    tmp = []
-    for i in range(2500):
-        m, o, l = step(x, y, m, o)
-        tmp.append(l)
-    return m, name, tmp
+# def run(x, y, m, o):
+#     name = threading.current_thread().name
+#     print('{} working on {}-{}'.format(name, x.size(), y.size()))
+#     # print('{} working on {}'.format(threading.current_thread().name, [param.grad.data for param in m.parameters()]))
+#     tmp = []
+#     for i in range(2500):
+#         m, o, l = step(x, y, m, o)
+#         tmp.append(l)
+#     return m, name, tmp
 
 
-def run_single(x, y, m, o):
+def run_single(x, y, m, o, new_gradient):
     name = multiprocessing.current_process().name
-    m, o, l = step(x, y, m, o)
+    m, o, l = step(x, y, m, o, new_gradient)
     g = Variable([param.grad.data for param in m.parameters()][0])
     return m, name, l, g
 
@@ -75,18 +77,14 @@ def gradients_sum(gradients):
     return su
 
 
-def run_on_queue(parts_q, model, gradients_q, losses_q):
+def run_on_queue(parts_q, model, gradients_q, losses_q, new_gradient):
     o = torch.optim.Adam(model.parameters(), lr=1e-2)
     x, y = parts_q.get()
-    try:
-        print('r1', multiprocessing.current_process().name, [param.grad.data for param in model.parameters()])
-    except:
-        print('r1 first')
-    m, name, l, g = run_single(x, y, model, o)
+    m, name, l, g = run_single(x, y, model, o, new_gradient)
     gradients_q.put(g)
     losses_q.put(l)
     parts_q.put((x, y))
-    print('r2', multiprocessing.current_process().name, g)
+    # print('rq', multiprocessing.current_process().name, g)
     # evt.wait()
 
 def run_monolithic(x, y, w, dx, dy, NUM_ITERATIONS):
@@ -120,7 +118,7 @@ if __name__ == "__main__":
 
     x, y, w = init_data(N, dx, dy)
     l_mono = run_monolithic(x, y, w, dx, dy, NUM_ITERATIONS)
-    exit()
+
 
     mp.set_start_method('spawn')
     m, o = instantiate_model(dx, dy)
@@ -148,14 +146,11 @@ if __name__ == "__main__":
     losses_q = mngr.Queue(maxsize=num_processes)
 
     # evt = mp.Event()
-    for i in range(10):
+    new_gradient = None
+    for i in range(NUM_ITERATIONS):
         processes = []
-        try:
-            print('begin', [param.grad.data for param in m.parameters()])
-        except:
-            print('first run')
         for pid in range(num_processes):
-            p = mp.Process(target=run_on_queue, args=(parts_q, m, gradients_q, losses_q))
+            p = mp.Process(target=run_on_queue, args=(parts_q, m, gradients_q, losses_q, new_gradient))
             p.start()
             processes.append(p)
 
@@ -168,13 +163,13 @@ if __name__ == "__main__":
             local_gradients.append(gradients_q.get())
 
         new_gradient = gradients_sum(local_gradients)
-        print('new:', new_gradient)
+        # print('new:', new_gradient)
 
         local_losses = []
         while not losses_q.empty():
             local_losses.append(losses_q.get())
-        m.linear.weight.grad = new_gradient
-        # print(sum(local_losses), l_mono[i])
+
+        print(i, sum(local_losses)[0], l_mono[i][0])
 
     exit()
 
