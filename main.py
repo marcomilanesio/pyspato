@@ -64,7 +64,7 @@ def update_model(model, g):
 
 def run(tup, model):
     x, y = tup
-    model = local_step(x, y, model)
+    model, _ = local_step(x, y, model)
     local_grad = Variable([param.grad.data for param in model.parameters()][0])
     # print('{}, running on {} {}, spitting {}'.format(multiprocessing.current_process().name, x.size(), y.size(),
     #                                                  local_grad.size()))
