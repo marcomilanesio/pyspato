@@ -44,11 +44,12 @@ def step(x, y, model, optimizer, g=None):
     loss = linmodel.cost(y, prediction)
     optimizer.zero_grad()
     loss.backward()  # get the gradients
-    if g is not None:
-        model.linear.weight.grad = g
+    # if g is not None:
+    #     model.linear.weight.grad = g
     # print([param.grad.data for param in model.parameters()])
     # sum gradients
     optimizer.step()  #
+    # print('loss', loss)
     return model, optimizer, loss.data.numpy()
 
 
@@ -81,9 +82,21 @@ def run_on_queue(parts_q, model, gradients_q, losses_q, new_gradient):
     o = torch.optim.Adam(model.parameters(), lr=1e-2)
     x, y = parts_q.get()
     m, name, l, g = run_single(x, y, model, o, new_gradient)
-    gradients_q.put(g)
+    # gradients_q.put(g)
     losses_q.put(l)
     parts_q.put((x, y))
+    # print('rq', multiprocessing.current_process().name, g)
+    # evt.wait()
+
+def run_on_queue2(parts_q, model):
+    o = torch.optim.Adam(model.parameters(), lr=1e-2)
+    x, y = parts_q
+    new_gradient = None
+    m, name, l, g = run_single(x, y, model, o, new_gradient)
+    return l
+    # gradients_q.put(g)
+    # losses_q.put(l)
+    # parts_q.put((x, y))
     # print('rq', multiprocessing.current_process().name, g)
     # evt.wait()
 
@@ -101,7 +114,7 @@ def run_monolithic(x, y, w, dx, dy, NUM_ITERATIONS):
     # plt.xlim(0, NUM_ITERATIONS)
     # fig.savefig('./plots/monolithic.png')
     t1 = time.time()
-    print('monolithic run done in {} msec'.format("%.2f" % (1000 * (t1 - t0))))
+    # print('monolithic run done in {} msec'.format("%.2f" % (1000 * (t1 - t0))))
     return losses_mono
 
 
@@ -109,8 +122,9 @@ if __name__ == "__main__":
     import time
     # from multiprocessing import Queue
     import torch.multiprocessing as mp
+    from functools import partial
 
-    NUM_ITERATIONS = 500
+    NUM_ITERATIONS = 1500
     NUM_PARTITIONS = 2
     N = 6  # 50 - 500 - 1000 - 5000
     dx = 1  # log fino a 1M (0-6)
@@ -147,29 +161,40 @@ if __name__ == "__main__":
 
     # evt = mp.Event()
     new_gradient = None
+
+    pool = mp.Pool(processes=num_processes)
     for i in range(NUM_ITERATIONS):
-        processes = []
-        for pid in range(num_processes):
-            p = mp.Process(target=run_on_queue, args=(parts_q, m, gradients_q, losses_q, new_gradient))
-            p.start()
-            processes.append(p)
+        losses = []
+        p = partial(run_on_queue2, model=m)
+        losses = pool.map(p, parts)
 
-        for p in processes:
-            p.join()
 
-        local_gradients = []
-        while not gradients_q.empty():
-            # print("Got:", gradients_q.get())
-            local_gradients.append(gradients_q.get())
-
-        new_gradient = gradients_sum(local_gradients)
-        # print('new:', new_gradient)
-
-        local_losses = []
-        while not losses_q.empty():
-            local_losses.append(losses_q.get())
-
-        print(i, sum(local_losses)[0], l_mono[i][0])
+    # for i in range(NUM_ITERATIONS):
+    #     processes = []
+    #     for pid in range(num_processes):
+    #         p = mp.Process(target=run_on_queue, args=(parts_q, m, gradients_q, losses_q, new_gradient))
+    #         p.start()
+    #         processes.append(p)
+    #
+    #     for p in processes:
+    #         p.join()
+    #
+    #     local_gradients = []
+    #     while not gradients_q.empty():
+    #         # print("Got:", gradients_q.get())
+    #         local_gradients.append(gradients_q.get())
+    #
+    #     new_gradient = gradients_sum(local_gradients)
+    #     # print('new:', new_gradient)
+    #
+    #     local_losses = []
+    #     while not losses_q.empty():
+    #         got = losses_q.get()
+    #         # print('got', got)
+    #         local_losses.append(got)
+    #
+    #     #print(i, local_losses)
+    #     print(i, sum(local_losses)[0], l_mono[i][0])
 
     exit()
 
