@@ -20,7 +20,7 @@ def init_data(nsamples, dx, dy):
         W = np.random.randint(1, 10, size=(dy, dx))
         if linalg.cond(W) < 1 / sys.float_info.epsilon:
             invertible = True
-            print('W invertible')
+            # print('W invertible')
 
     Y = W.dot(X.T)  # target
 
