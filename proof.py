@@ -34,6 +34,7 @@ def closed_form(x, y, w, splits=2):
     print(grad)
 
     slice_dim = y.shape[0] / splits
+    # TODO exact split
     y1 = y[50:,]
     y2 = y[:50,]
     x1 = x[50:,:]
