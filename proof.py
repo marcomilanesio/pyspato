@@ -2,6 +2,8 @@ import numpy as np
 import sys
 
 
+THRESHOLD = 1e-12  # max error
+
 def check_if_invertible(m):
     return np.linalg.cond(m) < 1 / sys.float_info.epsilon
 
@@ -16,7 +18,7 @@ def init_data(nsamples, dx, dy=1):
         w = np.random.randn(dx).reshape([dx, dy])
         invertible = check_if_invertible(w)
 
-    if w:
+    if w is not None:
         y = x.dot(w)
     else:
         exit('oops!')
@@ -28,27 +30,35 @@ def init_data(nsamples, dx, dy=1):
 
 
 def closed_form(x, y, w, splits=2):
+    # sum
     E = np.sum((y - x.dot(w))**2)
-    print(E)
+
+    mini_sums = []
+    y_slices = np.array_split(y, splits)
+    x_slices = np.array_split(x, splits)
+    assert len(x_slices) == len(y_slices)
+
+    for i, yslice in enumerate(y_slices):
+        tmp_sum = np.sum((yslice - x_slices[i].dot(w))**2)
+        mini_sums.append(tmp_sum)
+
+    resid = np.sum(mini_sums) - E
+    print('Sum: ', resid < THRESHOLD)
+
+    # gradients
     grad = -2 * x.T.dot(y - x.dot(w))
-    print(grad)
+    mini_grads = []
+    for i, yslice in enumerate(y_slices):
+        tmp_grad = -2 * x_slices[i].T.dot(yslice - x_slices[i].dot(w))
+        mini_grads.append(tmp_grad)
 
-    slice_dim = y.shape[0] / splits
-    # TODO exact split
-    y1 = y[50:,]
-    y2 = y[:50,]
-    x1 = x[50:,:]
-    x2 = x[:50,:]
-
-    #print(y1.shape, x1.shape, w.shape)
-    grad1 = -2 * x1.T.dot(y1 - x1.dot(w))
-    grad2 = -2 * x2.T.dot(y2 - x2.dot(w))
-    print(grad1)
-    print(grad2)
-    print(all((grad1 + grad2) - grad) < 1e-12)
+    resid = np.sum(mini_grads) - grad
+    print('Grad:', np.all([el < THRESHOLD for el in resid]))
 
 
 if __name__ == '__main__':
     n = 100
     dx = 10
     x, y, w = init_data(n, dx)
+    closed_form(x, y, w, splits=2)
+
