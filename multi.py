@@ -9,27 +9,17 @@ import numpy.linalg as linalg
 import sys
 import concurrent.futures
 import threading
+import time
+import torch.multiprocessing as mp
+from functools import partial
 
 
 def init_data(nsamples, dx, dy):
-    Xold = np.linspace(0, 1000, nsamples * dx).reshape([nsamples, dx])
-    X = utils.standardize(Xold)
+    X, Y, W = utils.init_data(nsamples, dx, dy)
 
-    invertible = False
-    while not invertible:
-        W = np.random.randint(1, 10, size=(dy, dx))
-        if linalg.cond(W) < 1 / sys.float_info.epsilon:
-            invertible = True
-            # print('W invertible')
-
-    Y = W.dot(X.T)  # target
-
-    # for i in range(Y.shape[1]):
-    #     Y[:, i] = utils.add_noise(Y[:, i])
-
-    x = Variable(torch.from_numpy(X), requires_grad=True).type(torch.FloatTensor)
-    y = Variable(torch.from_numpy(Y), requires_grad=True).type(torch.FloatTensor)
-    w = Variable(torch.from_numpy(W), requires_grad=True).type(torch.FloatTensor)
+    x = Variable(torch.from_numpy(X), requires_grad=False).type(torch.FloatTensor)
+    y = Variable(torch.from_numpy(Y), requires_grad=False).type(torch.FloatTensor)
+    w = Variable(torch.from_numpy(W), requires_grad=False).type(torch.FloatTensor)
     return x, y, w
 
 
@@ -100,6 +90,7 @@ def run_on_queue2(parts_q, model):
     # print('rq', multiprocessing.current_process().name, g)
     # evt.wait()
 
+
 def run_monolithic(x, y, w, dx, dy, NUM_ITERATIONS):
     m, o = instantiate_model(dx, dy)
     t0 = time.time()
@@ -114,37 +105,29 @@ def run_monolithic(x, y, w, dx, dy, NUM_ITERATIONS):
     # plt.xlim(0, NUM_ITERATIONS)
     # fig.savefig('./plots/monolithic.png')
     t1 = time.time()
-    # print('monolithic run done in {} msec'.format("%.2f" % (1000 * (t1 - t0))))
-    return losses_mono
+    print('monolithic run done in {} msec'.format("%.2f" % (1000 * (t1 - t0))))
+    estimated = [param.data for param in m.parameters()]
+    return losses_mono, estimated
 
 
 if __name__ == "__main__":
-    import time
-    # from multiprocessing import Queue
-    import torch.multiprocessing as mp
-    from functools import partial
 
     NUM_ITERATIONS = 1500
     NUM_PARTITIONS = 2
-    N = 6  # 50 - 500 - 1000 - 5000
-    dx = 1  # log fino a 1M (0-6)
-    dy = 5
+    N = 100  # 50 - 500 - 1000 - 5000
+    dx = 10  # log fino a 1M (0-6)
+    dy = 1
 
     x, y, w = init_data(N, dx, dy)
-    l_mono = run_monolithic(x, y, w, dx, dy, NUM_ITERATIONS)
-
+    # mono_loss, mono_estimated = run_monolithic(x, y, w, dx, dy, NUM_ITERATIONS)
 
     mp.set_start_method('spawn')
-    m, o = instantiate_model(dx, dy)
+    model, optimizer = instantiate_model(dx, dy)
 
     parts_x = list(torch.split(x, int(x.size()[0] / NUM_PARTITIONS)))
-    parts_y = list(torch.split(y, int(x.size()[0] / NUM_PARTITIONS), 1))
-    # print('x:', x)
-    # print('y:', y)
-    #
-    # print('parts_x', parts_x)
-    # print('parts_y', parts_y)
-    m.share_memory()
+    parts_y = list(torch.split(y, int(y.size()[0] / NUM_PARTITIONS)))
+
+    model.share_memory()
     mngr = mp.Manager()
 
     parts = [(i, j) for i, j in zip(parts_x, parts_y)]
