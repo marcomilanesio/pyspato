@@ -31,7 +31,6 @@ def init_data(nsamples, dx, dy=1):
 
 
 def closed_form(x, y, w, splits=2):
-    # sum
     E = np.sum((y - x.dot(w))**2)
 
     mini_sums = []
@@ -44,9 +43,8 @@ def closed_form(x, y, w, splits=2):
         mini_sums.append(tmp_sum)
 
     resid = np.sum(mini_sums) - E
-    print('Sum: ', resid < THRESHOLD)
+    print(resid < THRESHOLD)
 
-    # gradients
     grad = -2 * x.T.dot(y - x.dot(w))
     mini_grads = []
     for i, yslice in enumerate(y_slices):
@@ -54,7 +52,7 @@ def closed_form(x, y, w, splits=2):
         mini_grads.append(tmp_grad)
 
     resid = np.sum(mini_grads) - grad
-    print('Grad:', np.all([el < THRESHOLD for el in resid]))
+    print(np.all([el < THRESHOLD for el in resid]))
 
 
 if __name__ == '__main__':
