@@ -34,8 +34,8 @@ def step(x, y, model, optimizer, g=None):
     loss = linmodel.cost(y, prediction)
     optimizer.zero_grad()
     loss.backward()  # get the gradients
-    # if g is not None:
-    #     model.linear.weight.grad = g
+    if g is not None:
+        model.linear.weight.grad = g
     # print([param.grad.data for param in model.parameters()])
     # sum gradients
     optimizer.step()  #
@@ -110,9 +110,21 @@ def run_monolithic(x, y, w, dx, dy, NUM_ITERATIONS):
     return losses_mono, estimated
 
 
+def run(parts, model, queue_g, new_g):
+    x, y = parts
+    g = multi_step(x, y, model, new_g)
+    queue_g.put(g)
+    return x.size()
+
+
+def multi_step(x, y, model, new_g):
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+    m, name, l, g = run_single(x, y, model, optimizer, new_g)
+    return g
+
 if __name__ == "__main__":
 
-    NUM_ITERATIONS = 1500
+    NUM_ITERATIONS = 2
     NUM_PARTITIONS = 2
     N = 100  # 50 - 500 - 1000 - 5000
     dx = 10  # log fino a 1M (0-6)
@@ -126,31 +138,33 @@ if __name__ == "__main__":
 
     parts_x = list(torch.split(x, int(x.size()[0] / NUM_PARTITIONS)))
     parts_y = list(torch.split(y, int(y.size()[0] / NUM_PARTITIONS)))
+    parts = [(i, j) for i, j in zip(parts_x, parts_y)]
 
     model.share_memory()
     mngr = mp.Manager()
 
-    parts = [(i, j) for i, j in zip(parts_x, parts_y)]
-    # print('parts:', parts)
-    parts_q = mngr.Queue()
-    for p in parts:
-        parts_q.put(p)
-
     num_processes = NUM_PARTITIONS
 
-    # models_q = mp.Queue()
     gradients_q = mngr.Queue(maxsize=num_processes)
-    losses_q = mngr.Queue(maxsize=num_processes)
 
     # evt = mp.Event()
     new_gradient = None
 
-    pool = mp.Pool(processes=num_processes)
-    for i in range(NUM_ITERATIONS):
-        losses = []
-        p = partial(run_on_queue2, model=m)
-        losses = pool.map(p, parts)
+    with mp.Pool(processes=num_processes) as pool:
+        p = partial(run, model=model, queue_g=gradients_q, new_g=new_gradient)
+        res = pool.map(p, parts)
+        local_gradients = []
+        while not gradients_q.empty():
+            local_gradients.append(gradients_q.get())
 
+        new_gradient = gradients_sum(local_gradients)
+        print(new_gradient)
+
+        # for i in range(NUM_ITERATIONS):
+        #     losses = []
+        #     p = partial(run_on_queue2, model=model)
+        #     losses = pool.map(p, parts)
+    exit()
 
     # for i in range(NUM_ITERATIONS):
     #     processes = []
