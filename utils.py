@@ -21,21 +21,24 @@ def check_if_invertible(m):
 
 
 def init_data(nsamples, dx, dy=1):
-    x = np.random.randn(nsamples * dx).reshape((nsamples, dx))
+    # x = np.random.randn(nsamples * dx).reshape((nsamples, dx))
+    x = standardize(np.linspace(0, 1000, nsamples * dx).reshape((nsamples, dx)))
     w = None
     y = None
 
     invertible = False
     while not invertible:
-        w = np.random.randn(dx).reshape([dx, dy])
+        # w = np.random.randn(dx).reshape([dx, dy])
+        w = np.random.randint(1, 10, size=(dy, dx))
         invertible = check_if_invertible(w)
 
     if w is not None:
-        y = x.dot(w)
+        y = w.dot(x.T)
     else:
         exit('oops!')
 
-    assert y.shape == (nsamples, dy)
-
     print(y.shape, x.shape, w.shape)
+
+    # assert y.shape == (nsamples, dy)
+
     return x, y, w
