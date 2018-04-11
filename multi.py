@@ -124,7 +124,7 @@ def monolithic_run(x, y, m, o, num_iterations):
 
 if __name__ == "__main__":
 
-    NUM_ITERATIONS = 5000
+    NUM_ITERATIONS = 10000
     NUM_PARTITIONS = 2
     N = 500  # 50 - 500 - 1000 - 5000
     dx = 10  # log fino a 1M (0-6)
@@ -133,9 +133,9 @@ if __name__ == "__main__":
     x, y, w = init_data(N, dx, dy)
     m, o = instantiate_model(dx, dy)
     losses, mono_params = monolithic_run(x, y, m, o, NUM_ITERATIONS)
-    # plot_loss(losses, False)
-    print(w)
-    print(mono_params)
+    plot_loss(losses, False)
+    # print(w)
+    # print(mono_params)
     exit()
     mp.set_start_method('spawn')
     model, optimizer = instantiate_model(dx, dy)
