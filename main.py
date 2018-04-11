@@ -23,7 +23,7 @@ def init_data(nsamples, dx, dy):
 
     # for i in range(Y.shape[1]):
     #     Y[:, i] = utils.add_noise(Y[:, i])
-
+    print('shapes Y = {}; X: {}, W: {}'.format(Y.shape, X.shape, W.shape))
     x = Variable(torch.from_numpy(X), requires_grad=True).type(torch.FloatTensor)
     y = Variable(torch.from_numpy(Y), requires_grad=True).type(torch.FloatTensor)
     w = Variable(torch.from_numpy(W), requires_grad=True).type(torch.FloatTensor)
@@ -67,6 +67,8 @@ if __name__ == "__main__":
     for i in range(NUM_ITERATIONS):
         m, o, l = step(x, y, m, o)
         losses.append(l)
+    print(w)
+    print([param.data for param in m.parameters()])
 
     print(min(losses), max(losses))
     import matplotlib.pyplot as plt
