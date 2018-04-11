@@ -55,9 +55,9 @@ def get_mse(m, w):
 if __name__ == "__main__":
     NUM_ITERATIONS = 10000
 
-    N = 5000  # 50 - 500 - 1000 - 5000
-    dx = 10000  # log fino a 1M (0-6)
-    dy = 5
+    N = 500  # 50 - 500 - 1000 - 5000
+    dx = 10  # log fino a 1M (0-6)
+    dy = 1
 
     x, y, w = init_data(N, dx, dy)
 
