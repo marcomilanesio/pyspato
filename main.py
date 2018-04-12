@@ -42,7 +42,6 @@ def step(x, y, model, optimizer):
     optimizer.zero_grad()
     loss.backward()  # get the gradients
     # print([param.grad.data for param in model.parameters()])
-    # sum gradients
     optimizer.step()  #
     return model, optimizer, loss.data.numpy()
 
