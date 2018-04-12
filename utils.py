@@ -29,11 +29,11 @@ def init_data(nsamples, dx, dy=1):
     invertible = False
     while not invertible:
         # w = np.random.randn(dx).reshape([dx, dy])
-        w = np.random.randint(1, 10, size=(dy, dx))
+        w = np.random.randint(1, 10, size=(dx, dy))
         invertible = check_if_invertible(w)
 
     if w is not None:
-        y = w.dot(x.T)
+        y = x.dot(w)
     else:
         exit('oops!')
 
