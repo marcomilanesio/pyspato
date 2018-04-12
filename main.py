@@ -23,7 +23,7 @@ def init_data(nsamples, dx, dy):
 
     # for i in range(Y.shape[1]):
     #     Y[:, i] = utils.add_noise(Y[:, i])
-    print('shapes Y = {}; X: {}, W: {}'.format(Y.shape, X.shape, W.shape))
+    print('shapes Y = {}, X: {}, W: {}'.format(Y.shape, X.shape, W.shape))
     x = Variable(torch.from_numpy(X), requires_grad=True).type(torch.FloatTensor)
     y = Variable(torch.from_numpy(Y), requires_grad=True).type(torch.FloatTensor)
     w = Variable(torch.from_numpy(W), requires_grad=True).type(torch.FloatTensor)
@@ -37,9 +37,9 @@ def instantiate_model(dx, dy):
 
 
 def step(x, y, model, optimizer):
+    optimizer.zero_grad()
     prediction = model(x)  # x = (400, 1): x1 = (200. 1). x2 = (200, 1)
     loss = linmodel.cost(y, prediction)
-    optimizer.zero_grad()
     loss.backward()  # get the gradients
     # print([param.grad.data for param in model.parameters()])
     optimizer.step()  #
