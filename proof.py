@@ -94,7 +94,15 @@ def closed_form_torch_to_numpy(x, y, w):
 
 
 def torch_grad(x, y, w):
-    return -2 * x.t().mm(y - x.mm(w.t()))
+    """
+
+    :param x:N,dx
+    :param y:1,N
+    :param w:1,dx
+    :return:
+    """
+    # print(x.size(), y.size(), w.size())
+    return -2 * x.t().mm(y.t() - x.mm(w.t()))
 
 
 def closed_form_torch(x, y, w, splits=2):
@@ -114,8 +122,7 @@ def closed_form_torch(x, y, w, splits=2):
         print('tmp_grad', tmp_grad.size())
         grads.append(tmp_grad)
 
-    s = torch.cat(grads, dim=1)
-
+    s = torch.stack(grads)
     su = torch.sum(s, dim=0)
 
     resid = su - grad
