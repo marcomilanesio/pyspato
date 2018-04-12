@@ -8,13 +8,15 @@ def cost(target, predicted):
     :param predicted: model(x)
     :return:
     """
-    cost = torch.sum((torch.t(target) - predicted) ** 2)
+    assert target.t().size() == predicted.size()
+    # cost = torch.sum((torch.t(target) - predicted) ** 2)
+    cost = torch.sum((target.t() - predicted) ** 2)
     # print(cost)
     return cost
 
 
-def mse(input, target):
-    return nn.functional.mse_loss(input, target)
+# def mse(input, target):
+#     return nn.functional.mse_loss(input, target)
 
 
 class LinModel(nn.Module):
