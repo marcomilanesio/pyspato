@@ -127,14 +127,15 @@ def closed_form_torch(x, y, w, splits=2):
     su = torch.sum(s, dim=0)
 
     resid = su - grad
-    print(resid)
+    # print(resid)
     return np.all([el < THRESHOLD for el in resid.data.numpy()])
 
 if __name__ == '__main__':
-    n = 5000
+    n = 500
     dx = 10
     dy = 1
     x, y, w = init_data(n, dx, dy)
     print('closed form numpy', closed_form(x, y, w, splits=10))
+    print()
     x1, y1, w1 = convert_to_variable(x, y, w)
     print('closed form pytorch', closed_form_torch(x1, y1, w1, splits=10))
