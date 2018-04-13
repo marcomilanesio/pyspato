@@ -134,8 +134,9 @@ if __name__ == '__main__':
     n = 500
     dx = 10
     dy = 1
+    n_splits = 2
     x, y, w = init_data(n, dx, dy)
-    print('closed form numpy', closed_form(x, y, w, splits=10))
+    print('closed form numpy', closed_form(x, y, w, splits=n_splits))
     print()
     x1, y1, w1 = convert_to_variable(x, y, w)
-    print('closed form pytorch', closed_form_torch(x1, y1, w1, splits=10))
+    print('closed form pytorch', closed_form_torch(x1, y1, w1, splits=n_splits))
