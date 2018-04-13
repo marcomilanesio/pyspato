@@ -37,8 +37,5 @@ def init_data(nsamples, dx, dy=1):
     else:
         exit('oops!')
 
-    print(y.shape, x.shape, w.shape)
-
-    # assert y.shape == (nsamples, dy)
-
+    print('Created y: {}, x: {}, w: {}'.format(y.shape, x.shape, w.shape))
     return x, y, w
