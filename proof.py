@@ -17,7 +17,7 @@ def init_data(nsamples, dx, dy=1):
 
     invertible = False
     while not invertible:
-        w = np.random.randn(dx).reshape([dy, dx])
+        w = np.random.randn(dy * dx).reshape([dy, dx])
         invertible = check_if_invertible(w)
 
     if w is not None:
@@ -106,7 +106,7 @@ def torch_grad(x, y, w):
 
 
 def closed_form_torch(x, y, w, splits=2):
-    # print('x = ', x.size(), '; y = ', y.size(), '; w =', w.size())
+    print('x = ', x.size(), '; y = ', y.size(), '; w =', w.size())
     grad = torch_grad(x, y, w)
     print('grad', grad.size())
     y_slices = list(torch.split(y, int(y.size()[1] / splits), dim=1))
@@ -126,12 +126,14 @@ def closed_form_torch(x, y, w, splits=2):
     su = torch.sum(s, dim=0)
 
     resid = su - grad
+    print(resid)
     return np.all([el < THRESHOLD for el in resid.data.numpy()])
 
 if __name__ == '__main__':
-    n = 500
+    n = 5000
     dx = 10
-    x, y, w = init_data(n, dx)
+    dy = 1
+    x, y, w = init_data(n, dx, dy)
     print('closed form numpy', closed_form(x, y, w, splits=10))
     x1, y1, w1 = convert_to_variable(x, y, w)
     print('closed form pytorch', closed_form_torch(x1, y1, w1, splits=10))
