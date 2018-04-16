@@ -1,1 +1,8 @@
+.idea/
 .idea/*
+plots/
+plots/*
+models*
+tests*
+__pycache__/
+__pycache__/*
