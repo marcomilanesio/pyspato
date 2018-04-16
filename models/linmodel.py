@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from proof import torch_grad
 
 
 def cost(target, predicted):
@@ -27,3 +28,6 @@ class LinModel(nn.Module):
     def forward(self, x):
         out = self.linear(x)
         return out
+
+    def backward(self, x, y, w):
+        return -2 * x.t().mm(y.t() - x.mm(w.t()))

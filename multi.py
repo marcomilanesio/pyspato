@@ -25,7 +25,7 @@ def init_data(nsamples, dx, dy):
 
 def instantiate_model(dx, dy):
     model = linmodel.LinModel(dx, dy)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-1)
     return model, optimizer
 
 
@@ -127,8 +127,8 @@ if __name__ == "__main__":
     NUM_ITERATIONS = 2500
     NUM_PARTITIONS = 2
     N = 500  # 50 - 500 - 1000 - 5000
-    dx = 1  # log fino a 1M (0-6)
-    dy = 5
+    dx = 5  # log fino a 1M (0-6)
+    dy = 10
 
     # torch variables
     x, y, w = init_data(N, dx, dy)
@@ -146,9 +146,10 @@ if __name__ == "__main__":
     mp.set_start_method('spawn')
     model, optimizer = instantiate_model(dx, dy)
 
-    parts_x = list(torch.split(x, int(x.size()[0] / NUM_PARTITIONS)))
-    parts_y = list(torch.split(y, int(y.size()[0] / NUM_PARTITIONS)))
-    parts = [(i, j) for i, j in zip(parts_x, parts_y)]
+    y_slices = list(torch.split(y, int(y.size()[1] / NUM_PARTITIONS), dim=1))
+    x_slices = list(torch.split(x, int(x.size()[0] / NUM_PARTITIONS)))
+    parts = [(i, j) for i, j in zip(x_slices, y_slices)]
+
     print('number of splits = {}'.format(len(parts)))
     model.share_memory()
     mngr = mp.Manager()
