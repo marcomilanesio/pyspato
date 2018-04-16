@@ -22,15 +22,17 @@ def check_if_invertible(m):
 
 def init_data(nsamples, dx, dy):
     # x = np.random.randn(nsamples * dx).reshape((nsamples, dx))
-    x = standardize(np.linspace(0, 1000, nsamples * dx).reshape((nsamples, dx)))
+    x = np.random.randn(nsamples * dx).reshape((nsamples, dx))
     w = None
     y = None
 
-    invertible = False
-    while not invertible:
-        # w = np.random.randn(dy * dx).reshape([dy, dx])
-        w = np.random.randint(1, 10, size=(dy, dx))
-        invertible = check_if_invertible(w)
+    w = np.random.randint(1, 10, size=(dy, dx))
+
+    # invertible = False
+    # while not invertible:
+    #     # w = np.random.randn(dy * dx).reshape([dy, dx])
+    #     w = np.random.randint(1, 10, size=(dy, dx))
+    #     invertible = check_if_invertibl
 
     if w is not None:
         y = w.dot(x.T)

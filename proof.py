@@ -132,9 +132,9 @@ def closed_form_torch(x, y, w, splits=2):
 
 if __name__ == '__main__':
     n = 500
-    dx = 10
+    dx = 5
     dy = 1
-    n_splits = 2
+    n_splits = 10
     x, y, w = init_data(n, dx, dy)
     print('closed form numpy', closed_form(x, y, w, splits=n_splits))
     print()
