@@ -20,7 +20,7 @@ def check_if_invertible(m):
     return np.linalg.cond(m) < 1 / sys.float_info.epsilon
 
 
-def init_data(nsamples, dx, dy=1):
+def init_data(nsamples, dx, dy):
     # x = np.random.randn(nsamples * dx).reshape((nsamples, dx))
     x = standardize(np.linspace(0, 1000, nsamples * dx).reshape((nsamples, dx)))
     w = None

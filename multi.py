@@ -127,8 +127,8 @@ if __name__ == "__main__":
     NUM_ITERATIONS = 2500
     NUM_PARTITIONS = 2
     N = 500  # 50 - 500 - 1000 - 5000
-    dx = 10  # log fino a 1M (0-6)
-    dy = 1
+    dx = 1  # log fino a 1M (0-6)
+    dy = 5
 
     # torch variables
     x, y, w = init_data(N, dx, dy)
