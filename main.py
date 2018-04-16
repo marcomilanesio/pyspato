@@ -30,7 +30,7 @@ y = Variable(torch.from_numpy(Y), requires_grad=False).type(torch.FloatTensor)
 # how to split x, y
 
 model = linmodel.LinModel(1, 5)
-
+print(x.size(), y.size(), W.shape)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
 
 for i in range(5000):
