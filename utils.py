@@ -28,7 +28,7 @@ def init_data(nsamples, dx, dy=1):
 
     invertible = False
     while not invertible:
-        # w = np.random.randn(dx).reshape([dx, dy])
+        # w = np.random.randn(dy * dx).reshape([dy, dx])
         w = np.random.randint(1, 10, size=(dy, dx))
         invertible = check_if_invertible(w)
 

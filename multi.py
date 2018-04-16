@@ -17,9 +17,9 @@ from functools import partial
 def init_data(nsamples, dx, dy):
     X, Y, W = utils.init_data(nsamples, dx, dy)
 
-    x = Variable(torch.from_numpy(X), requires_grad=False).type(torch.FloatTensor)
-    y = Variable(torch.from_numpy(Y), requires_grad=False).type(torch.FloatTensor)
-    w = Variable(torch.from_numpy(W), requires_grad=False).type(torch.FloatTensor)
+    x = Variable(torch.from_numpy(X), requires_grad=True).type(torch.FloatTensor)
+    y = Variable(torch.from_numpy(Y), requires_grad=True).type(torch.FloatTensor)
+    w = Variable(torch.from_numpy(W), requires_grad=True).type(torch.FloatTensor)
     return x, y, w
 
 
@@ -34,8 +34,8 @@ def step(x, y, model, optimizer, g=None):
     loss = linmodel.cost(y, prediction)
     optimizer.zero_grad()
     loss.backward()  # get the gradients
-    if g is not None:
-        model.linear.weight.grad = g
+    # if g is not None:
+    #     model.linear.weight.grad = g
     # print([param.grad.data for param in model.parameters()])
     # sum gradients
     optimizer.step()  #
@@ -73,28 +73,19 @@ def gradients_sum(gradients):
 #     # evt.wait()
 
 
-def grad_closed_form(x, y, w):
-    xn = x.data.numpy()
-    yn = y.data.numpy()
-    wn = w.numpy().T
-    print('Yn', yn.shape, 'Xn', xn.shape, 'Wn', wn.shape)
-    grad = -2 * xn.T.dot(yn - xn.dot(wn))
-    return grad
-
-
-def run(parts, model, optimizer, queue_g, new_g):
-    name = multiprocessing.current_process().name
-    x, y = parts
-    m, o, l = step(x, y, model, optimizer, new_g)
-    g = Variable([param.grad.data for param in m.parameters()][0])
-    w_temp = [param.data for param in m.parameters()][0]
-    close_grad = grad_closed_form(x, y, w_temp)
-    print('in run method of {}'.format(name))
-    print(close_grad)
-    print(g)
-    print('--')
-    queue_g.put(g)
-    return x.size()
+# def run(parts, model, optimizer, queue_g, new_g):
+#     name = multiprocessing.current_process().name
+#     x, y = parts
+#     m, o, l = step(x, y, model, optimizer, new_g)
+#     g = Variable([param.grad.data for param in m.parameters()][0])
+#     w_temp = [param.data for param in m.parameters()][0]
+#     close_grad = grad_closed_form(x, y, w_temp)
+#     print('in run method of {}'.format(name))
+#     print(close_grad)
+#     print(g)
+#     print('--')
+#     queue_g.put(g)
+#     return x.size()
 
 
 def plot_loss(loss, fname=False):
@@ -106,37 +97,52 @@ def plot_loss(loss, fname=False):
         fig.savefig(fname)
     else:
         plt.show()
+    plt.close()
 
 
-def monolithic_run(x, y, m, o, num_iterations):
+def monolithic_run(x, y, model, optimizer, num_iterations):
+    # criterion = torch.nn.MSELoss()
     t0 = time.time()
     losses = []
     for i in range(num_iterations):
-        m, o, l = step(x, y, m, o)
+        # m, o, l = step(x, y, m, o)
+        optimizer.zero_grad()
+        prediction = model(x)
+        loss = linmodel.cost(y, prediction)
+        # loss = criterion(prediction, y)
+
+        loss.backward()
+        optimizer.step()
         # print('mono param', [param.data for param in m.parameters()])
         # print('mono grad', [param.grad.data for param in m.parameters()])
-        losses.append(l)
+        losses.append(loss.data.numpy())
 
     t1 = time.time()
     print('monolithic run done in {} msec'.format("%.2f" % (1000 * (t1 - t0))))
-    estimated = [param.data for param in m.parameters()]
-    return losses, estimated
+    estimated = [param.data for param in model.parameters()]
+    return losses, estimated, model
 
 if __name__ == "__main__":
 
-    NUM_ITERATIONS = 5000
+    NUM_ITERATIONS = 2500
     NUM_PARTITIONS = 2
     N = 500  # 50 - 500 - 1000 - 5000
     dx = 10  # log fino a 1M (0-6)
     dy = 1
 
+    # torch variables
     x, y, w = init_data(N, dx, dy)
-    m, o = instantiate_model(dx, dy)
-    losses, mono_params = monolithic_run(x, y, m, o, NUM_ITERATIONS)
+    model, optimizer = instantiate_model(dx, dy)
+    losses, mono_params, m = monolithic_run(x, y, model, optimizer, NUM_ITERATIONS)
     plot_loss(losses, False)
-    # print(w)
-    # print(mono_params)
+
+
+    print(w)
+    # print([param.data for param in m.parameters()])
+    print(m.state_dict())
     exit()
+
+
     mp.set_start_method('spawn')
     model, optimizer = instantiate_model(dx, dy)
 

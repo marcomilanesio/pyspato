@@ -25,4 +25,5 @@ class LinModel(nn.Module):
         self.linear = nn.Linear(in_size, out_size, bias=False)  # layer parameters
 
     def forward(self, x):
-        return self.linear(x)
+        out = self.linear(x)
+        return out
