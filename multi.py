@@ -73,19 +73,16 @@ def gradients_sum(gradients):
 #     # evt.wait()
 
 
-# def run(parts, model, optimizer, queue_g, new_g):
-#     name = multiprocessing.current_process().name
-#     x, y = parts
-#     m, o, l = step(x, y, model, optimizer, new_g)
-#     g = Variable([param.grad.data for param in m.parameters()][0])
-#     w_temp = [param.data for param in m.parameters()][0]
-#     close_grad = grad_closed_form(x, y, w_temp)
-#     print('in run method of {}'.format(name))
-#     print(close_grad)
-#     print(g)
-#     print('--')
-#     queue_g.put(g)
-#     return x.size()
+def run(parts, model, optimizer):
+    name = multiprocessing.current_process().name
+    x, y = parts
+    optimizer.zero_grad()
+    prediction = model(x)  # x = (400, 1): x1 = (200. 1). x2 = (200, 1)
+    loss = linmodel.cost(y, prediction)
+    loss.backward()  # get the gradients
+    g = Variable([param.grad.data for param in model.parameters()][0])
+    # print(name, g)
+    return g
 
 
 def plot_loss(loss, fname=False):
@@ -126,9 +123,9 @@ if __name__ == "__main__":
 
     NUM_ITERATIONS = 2500
     NUM_PARTITIONS = 2
-    N = 5000  # 50 - 500 - 1000 - 5000
-    dx = 20  # log fino a 1M (0-6)
-    dy = 100
+    N = 500  # 50 - 500 - 1000 - 5000
+    dx = 5  # log fino a 1M (0-6)
+    dy = 1
 
     # torch variables
     x, y, w = init_data(N, dx, dy)
@@ -140,7 +137,7 @@ if __name__ == "__main__":
     print(w)
     # print([param.data for param in m.parameters()])
     print(m.state_dict())
-    exit()
+    # exit()
 
 
     mp.set_start_method('spawn')
@@ -163,20 +160,14 @@ if __name__ == "__main__":
 
     with mp.Pool(processes=num_processes) as pool:
         for i in range(NUM_ITERATIONS):
-            p = partial(run, model=model, optimizer=optimizer, queue_g=gradients_q, new_g=new_gradient)
+            p = partial(run, model=model, optimizer=optimizer)
             res = pool.map(p, parts)
-            local_gradients = []
-            while not gradients_q.empty():
-                local_gradients.append(gradients_q.get())
+            # print('got', len(res), type(res[0]))
+            g = gradients_sum(res)
+            model.linear.weight.grad = g
+            optimizer.step()
 
-            new_gradient = gradients_sum(local_gradients)
-            print('pool', new_gradient)
-
-
-        # for i in range(NUM_ITERATIONS):
-        #     losses = []
-        #     p = partial(run_on_queue2, model=model)
-        #     losses = pool.map(p, parts)
+    print(model.state_dict())
     exit()
 
     # for i in range(NUM_ITERATIONS):
