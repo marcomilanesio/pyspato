@@ -118,7 +118,7 @@ def monolithic_run(x, y, model, optimizer, num_iterations):
         losses.append(loss.data.numpy())
 
     t1 = time.time()
-    print('monolithic run done in {} msec'.format("%.2f" % (1000 * (t1 - t0))))
+    # print('monolithic run done in {} msec'.format("%.2f" % (1000 * (t1 - t0))))
     estimated = [param.data for param in model.parameters()]
     return losses, estimated, model
 
@@ -126,9 +126,9 @@ if __name__ == "__main__":
 
     NUM_ITERATIONS = 2500
     NUM_PARTITIONS = 2
-    N = 500  # 50 - 500 - 1000 - 5000
-    dx = 5  # log fino a 1M (0-6)
-    dy = 10
+    N = 5000  # 50 - 500 - 1000 - 5000
+    dx = 20  # log fino a 1M (0-6)
+    dy = 100
 
     # torch variables
     x, y, w = init_data(N, dx, dy)

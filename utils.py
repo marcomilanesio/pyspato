@@ -39,5 +39,5 @@ def init_data(nsamples, dx, dy):
     else:
         exit('oops!')
 
-    print('Created y: {}, x: {}, w: {}'.format(y.shape, x.shape, w.shape))
+    # print('Created y: {}, x: {}, w: {}'.format(y.shape, x.shape, w.shape))
     return x, y, w
