@@ -21,7 +21,6 @@ def check_if_invertible(m):
 
 
 def init_data(nsamples, dx, dy):
-    # x = np.random.randn(nsamples * dx).reshape((nsamples, dx))
     x = np.random.randn(nsamples * dx).reshape((nsamples, dx))
     w = None
     y = None

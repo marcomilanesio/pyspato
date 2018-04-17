@@ -5,9 +5,9 @@ import time
 n_iterations = 2500
 
 def main():
-    for N in [50, 500]: #, 1000, 5000]:
-        for dx in map(int, np.power(10, range(0, 2))):
-            for dy in map(int, np.power(10, range(0, 2))):
+    for N in [50, 500, 1000, 5000]:
+        for dx in map(int, np.power(10, range(0, 7))):
+            for dy in map(int, np.power(10, range(0, 7))):
                 t0 = time.time()
                 x, y, w = multi.init_data(N, dx, dy)
                 model, optimizer = multi.instantiate_model(dx, dy)
