@@ -56,51 +56,48 @@ def plot_loss(loss, fname=False):
 
 
 def monolithic_run(x, y, model, optimizer, num_iterations):
-    # criterion = torch.nn.MSELoss()
-    t0 = time.time()
     losses = []
     for i in range(num_iterations):
-        # m, o, l = step(x, y, m, o)
         optimizer.zero_grad()
         prediction = model(x)
         loss = linmodel.cost(y, prediction)
-        # loss = criterion(prediction, y)
-
         loss.backward()
         optimizer.step()
-        # print('mono param', [param.data for param in m.parameters()])
-        # print('mono grad', [param.grad.data for param in m.parameters()])
         losses.append(loss.data.numpy())
 
-    t1 = time.time()
-    # print('monolithic run done in {} msec'.format("%.2f" % (1000 * (t1 - t0))))
     estimated = [param.data for param in model.parameters()]
     return losses, estimated, model
 
 if __name__ == "__main__":
 
     NUM_ITERATIONS = 2500
-    NUM_PARTITIONS = 2
+    NUM_PARTITIONS = 10
     N = 500  # 50 - 500 - 1000 - 5000
-    dx = 5  # log fino a 1M (0-6)
+    dx = 10  # log fino a 1M (0-6)
     dy = 5
 
     # torch variables
     x, y, w = init_data(N, dx, dy)
     model, optimizer = instantiate_model(dx, dy)
+    t0 = time.time()
     mono_losses, mono_params, m = monolithic_run(x, y, model, optimizer, NUM_ITERATIONS)
+    t1 = time.time()
+    t_mono = (t1 - t0) * 1000
+    print('monolithic run: {} msec'.format(t_mono))
     # plot_loss(mono_losses, False)
-    print(w)
-    print(m.state_dict())
+
+    # print(w)
+    # print(m.state_dict())
 
     mp.set_start_method('spawn')
     model, optimizer = instantiate_model(dx, dy)
 
+    t0 = time.time()
     y_slices = list(torch.split(y, int(y.size()[1] / NUM_PARTITIONS), dim=1))
     x_slices = list(torch.split(x, int(x.size()[0] / NUM_PARTITIONS)))
     parts = [(i, j) for i, j in zip(x_slices, y_slices)]
 
-    # print('number of splits = {}'.format(len(parts)))
+    print('number of splits = {}'.format(len(parts)))
     model.share_memory()
     mngr = mp.Manager()
 
@@ -118,12 +115,15 @@ if __name__ == "__main__":
             model.linear.weight.grad = new_grad
             optimizer.step()
 
-    print(model.state_dict())
+    t1 = time.time()
+    t_multi = (t1 - t0) * 1000
+    print('multiprocess run: {} msec'.format(t_multi))
+    # print(model.state_dict())
 
     fig, ax = plt.subplots()
     ax.plot(mono_losses, label='monolithic')
     ax.plot(multi_losses, color='red', label='multiprocessing')
-    plt.title('500-5-5-2')
+    plt.title('{}-{}-{}-{}'.format(N, dx, dy, NUM_PARTITIONS))
     plt.legend()
     plt.xlim(0, NUM_ITERATIONS)
     plt.show()
