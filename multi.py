@@ -43,6 +43,19 @@ def run(parts, model, optimizer):
     return g, loss
 
 
+def run2(queue, model, optimizer, num_iterations, return_dict):
+    name = multiprocessing.current_process().name
+    x, y = queue.get()
+    for i in range(num_iterations):
+        optimizer.zero_grad()
+        prediction = model(x)  # x = (400, 1): x1 = (200. 1). x2 = (200, 1)
+        loss = linmodel.cost(y, prediction)
+        loss.backward()  # get the gradients
+        optimizer.step()
+    g = [param.grad.data for param in model.parameters()]
+    return_dict[name] = {'g': g, 'loss': loss}
+
+
 def plot_loss(loss, fname=False):
     fig, ax = plt.subplots()
     ax.plot(loss)
@@ -81,6 +94,7 @@ if __name__ == "__main__":
     model, optimizer = instantiate_model(dx, dy)
     t0 = time.time()
     mono_losses, mono_params, m = monolithic_run(x, y, model, optimizer, NUM_ITERATIONS)
+    print(mono_losses[-1])
     t1 = time.time()
     t_mono = (t1 - t0) * 1000
     print('monolithic run: {} msec'.format(t_mono))
@@ -98,20 +112,31 @@ if __name__ == "__main__":
     print('number of splits = {}'.format(len(parts)))
     model.share_memory()
     mngr = mp.Manager()
+    return_dict = mngr.dict()
+
+    q = mngr.Queue(maxsize=10)
+    for el in parts:
+        q.put(el)
+    time.sleep(1)  # Just enough to let the Queue finish
+    print(q.full())
 
     num_processes = NUM_PARTITIONS
 
-    new_gradient = None
+    processes = []
     multi_losses = []
-    with mp.Pool(processes=num_processes) as pool:
-        for i in range(NUM_ITERATIONS):
-            p = partial(run, model=model, optimizer=optimizer)
-            res = pool.map(p, parts)
-            new_grad = torch_list_sum([x[0] for x in res])
-            loss = list(torch_list_sum([x[1] for x in res]).data.numpy())
-            multi_losses.append(loss)
-            model.linear.weight.grad = new_grad
-            optimizer.step()
+    for rank in range(num_processes):
+        p = mp.Process(target=run2, args=(q, model, optimizer, NUM_ITERATIONS, return_dict))
+        p.start()
+        processes.append(p)
+
+    for proc in processes:
+        p.join()
+
+    time.sleep(1)  # Just enough to let the Queue finish
+    for k, v in return_dict.items():
+        print(k, v)
+        exit()
+
 
     t1 = time.time()
     t_multi = (t1 - t0) * 1000
