@@ -84,8 +84,6 @@ if __name__ == "__main__":
     t1 = time.time()
     t_mono = (t1 - t0) * 1000
     print('monolithic run: {} msec'.format(t_mono))
-    # plot_loss(mono_losses, False)
-
     # print(w)
     # print(m.state_dict())
 
