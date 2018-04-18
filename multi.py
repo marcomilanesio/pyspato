@@ -5,10 +5,6 @@ import matplotlib.pyplot as plt
 import multiprocessing
 from models import linmodel
 import utils
-import numpy.linalg as linalg
-import sys
-import concurrent.futures
-import threading
 import time
 import torch.multiprocessing as mp
 from functools import partial
@@ -29,9 +25,8 @@ def instantiate_model(dx, dy):
     return model, optimizer
 
 
-def gradients_sum(gradients):
-    # print('gradients: {}'.format(gradients))
-    s = torch.stack(gradients)
+def torch_list_sum(list_):
+    s = torch.stack(list_)
     su = torch.sum(s, dim=0)
     return su
 
@@ -45,7 +40,7 @@ def run(parts, model, optimizer):
     loss.backward()  # get the gradients
     g = Variable([param.grad.data for param in model.parameters()][0])
     # print(name, g)
-    return g
+    return g, loss
 
 
 def plot_loss(loss, fname=False):
@@ -93,9 +88,8 @@ if __name__ == "__main__":
     # torch variables
     x, y, w = init_data(N, dx, dy)
     model, optimizer = instantiate_model(dx, dy)
-    losses, mono_params, m = monolithic_run(x, y, model, optimizer, NUM_ITERATIONS)
-    plot_loss(losses, False)
-
+    mono_losses, mono_params, m = monolithic_run(x, y, model, optimizer, NUM_ITERATIONS)
+    # plot_loss(mono_losses, False)
     print(w)
     print(m.state_dict())
 
@@ -106,37 +100,31 @@ if __name__ == "__main__":
     x_slices = list(torch.split(x, int(x.size()[0] / NUM_PARTITIONS)))
     parts = [(i, j) for i, j in zip(x_slices, y_slices)]
 
-    print('number of splits = {}'.format(len(parts)))
+    # print('number of splits = {}'.format(len(parts)))
     model.share_memory()
     mngr = mp.Manager()
 
     num_processes = NUM_PARTITIONS
 
     new_gradient = None
-
+    multi_losses = []
     with mp.Pool(processes=num_processes) as pool:
         for i in range(NUM_ITERATIONS):
             p = partial(run, model=model, optimizer=optimizer)
             res = pool.map(p, parts)
-            # print('got', len(res), type(res[0]))
-            g = gradients_sum(res)
-            model.linear.weight.grad = g
+            new_grad = torch_list_sum([x[0] for x in res])
+            loss = list(torch_list_sum([x[1] for x in res]).data.numpy())
+            multi_losses.append(loss)
+            model.linear.weight.grad = new_grad
             optimizer.step()
 
     print(model.state_dict())
 
-    # fig, axes = plt.subplots(5, 2, sharex=True, sharey=True)
-    # i, j = 0, 0
-    # for name, lst in losses.items():
-    #     axes[i % 5, j % 2].plot(lst, label='{}'.format(name))
-    #     legend = axes[i % 5, j % 2].legend(loc='upper right')
-    #     plt.legend()
-    #     plt.ylim(0, 3000)
-    #     plt.xlim(0, 500)
-    #     i += 1
-    #     j += 1
-    # fig.savefig('./plots/process_loss.png')
-    # for k, v in losses.items():
-    #     print(k, v[-2:])
-
-
+    fig, ax = plt.subplots()
+    ax.plot(mono_losses, label='monolithic')
+    ax.plot(multi_losses, color='red', label='multiprocessing')
+    plt.title('500-5-5-2')
+    plt.legend()
+    plt.xlim(0, NUM_ITERATIONS)
+    plt.show()
+    plt.close()
