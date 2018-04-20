@@ -91,19 +91,22 @@ if __name__ == "__main__":
 
     NUM_ITERATIONS = 2500
     NUM_PARTITIONS = 10
-    N = 500  # 50 - 500 - 1000 - 5000
-    dx = 10  # log fino a 1M (0-6)
+    N = 5000  # 50 - 500 - 1000 - 5000
+    dx = 100  # log fino a 1M (0-6)
     dy = 5
 
     # torch variables
     x, y, w = init_data(N, dx, dy)
     model, optimizer = instantiate_model(dx, dy)
     t0 = time.time()
-    mono_losses, mono_params, m = monolithic_run(x, y, model, optimizer, NUM_ITERATIONS)
-    print(mono_losses[-1])
+    mono_losses, mono_param_l, m = monolithic_run(x, y, model, optimizer, NUM_ITERATIONS)
+
+    mono_params = Variable(mono_param_l[0])
+    print(type(mono_params), mono_params.size())
+    # print(mono_losses[-1])
     t1 = time.time()
     t_mono = (t1 - t0) * 1000
-    print('monolithic run: {} msec'.format(t_mono))
+    print('monolithic run: {} msec'.format('%.2f' % t_mono))
     # print(w)
     # print(m.state_dict())
 
@@ -149,7 +152,8 @@ if __name__ == "__main__":
 
     models_dicts = [Variable(x['model']['linear.weight']) for x in results]
     for pos, estimated_param in enumerate(models_dicts):
-        print(pos, torch.sum((estimated_param.mm(x.t()) - y)**2).data.numpy())
+        # print(pos, torch.sum((estimated_param.mm(x.t()) - y)**2).data.numpy())
+        print(pos, torch.sum((estimated_param - mono_params)**2).data.numpy())
 
     t1 = time.time()
     t_multi = (t1 - t0) * 1000
