@@ -43,17 +43,20 @@ def run(parts, model, optimizer):
     return g, loss
 
 
-def run2(queue, model, optimizer, num_iterations, return_dict):
+def run2(q, r, model, optimizer, num_iterations):
     name = multiprocessing.current_process().name
-    x, y = queue.get()
-    for i in range(num_iterations):
-        optimizer.zero_grad()
-        prediction = model(x)  # x = (400, 1): x1 = (200. 1). x2 = (200, 1)
-        loss = linmodel.cost(y, prediction)
-        loss.backward()  # get the gradients
-        optimizer.step()
-    g = [param.grad.data for param in model.parameters()]
-    return_dict[name] = {'g': g, 'loss': loss}
+    print('starting {}'.format(name))
+    if not q.empty():
+        x, y = q.get()
+        for i in range(num_iterations):
+            optimizer.zero_grad()
+            prediction = model(x)  # x = (400, 1): x1 = (200. 1). x2 = (200, 1)
+            loss = linmodel.cost(y, prediction)
+            loss.backward()  # get the gradients
+            optimizer.step()
+        g = Variable([param.grad.data for param in model.parameters()][0])
+        to_return = {'g': g, 'loss': loss, 'model': model.state_dict()}
+        r.put(to_return)
 
 
 def plot_loss(loss, fname=False):
@@ -112,30 +115,43 @@ if __name__ == "__main__":
     print('number of splits = {}'.format(len(parts)))
     model.share_memory()
     mngr = mp.Manager()
-    return_dict = mngr.dict()
 
-    q = mngr.Queue(maxsize=10)
+    q = mngr.Queue(maxsize=NUM_PARTITIONS)
+    r = mngr.Queue(maxsize=NUM_PARTITIONS)
     for el in parts:
         q.put(el)
-    time.sleep(1)  # Just enough to let the Queue finish
-    print(q.full())
+        time.sleep(0.1)
+    print('input queue full: {}'.format(q.full()))
 
     num_processes = NUM_PARTITIONS
 
     processes = []
     multi_losses = []
     for rank in range(num_processes):
-        p = mp.Process(target=run2, args=(q, model, optimizer, NUM_ITERATIONS, return_dict))
+        p = mp.Process(target=run2, args=(q, r, model, optimizer, NUM_ITERATIONS))
         p.start()
         processes.append(p)
 
-    for proc in processes:
+    print('started {} processes'.format(len(processes)))
+
+    for p in processes:
         p.join()
 
-    time.sleep(1)  # Just enough to let the Queue finish
-    for k, v in return_dict.items():
-        print(k, v)
-        exit()
+    results = []
+    while not r.empty():
+        results.append(r.get())
+
+    gradient = torch_list_sum([x['g'] for x in results])
+    loss = torch_list_sum([x['loss'] for x in results])
+    models_dicts = [x['model'] for x in results]
+    print(models_dicts[0])
+    print(w)
+    # estimated_parameters = [model.load_state_dict(x).parameters() for x in models_dicts]
+
+    # print(estimated_parameters[0])
+    # print(gradient)
+    exit()
+
 
 
     t1 = time.time()
