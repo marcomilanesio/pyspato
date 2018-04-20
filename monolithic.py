@@ -1,13 +1,9 @@
-import numpy as np
 import torch.optim
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
-import multiprocessing
 from models import linmodel
 import utils
 import time
-import torch.multiprocessing as mp
-from functools import partial
 
 
 def init_data(nsamples, dx, dy):
