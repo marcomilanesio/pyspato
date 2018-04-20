@@ -45,7 +45,8 @@ def run(parts, model, optimizer):
 
 def run2(q, r, model, optimizer, num_iterations):
     name = multiprocessing.current_process().name
-    print('starting {}'.format(name))
+    # print('starting {}'.format(name))
+    tmp = []
     if not q.empty():
         x, y = q.get()
         for i in range(num_iterations):
@@ -53,9 +54,11 @@ def run2(q, r, model, optimizer, num_iterations):
             prediction = model(x)  # x = (400, 1): x1 = (200. 1). x2 = (200, 1)
             loss = linmodel.cost(y, prediction)
             loss.backward()  # get the gradients
+            tmp.append(loss.data.numpy())
             optimizer.step()
         g = Variable([param.grad.data for param in model.parameters()][0])
-        to_return = {'g': g, 'loss': loss, 'model': model.state_dict()}
+        # print(name, len(tmp))
+        to_return = {'g': g, 'loss': tmp, 'model': model.state_dict()}
         r.put(to_return)
 
 
@@ -142,17 +145,11 @@ if __name__ == "__main__":
         results.append(r.get())
 
     gradient = torch_list_sum([x['g'] for x in results])
-    loss = torch_list_sum([x['loss'] for x in results])
-    models_dicts = [x['model'] for x in results]
-    print(models_dicts[0])
-    print(w)
-    # estimated_parameters = [model.load_state_dict(x).parameters() for x in models_dicts]
+    multi_losses = np.sum([x['loss'] for x in results], axis=0)
 
-    # print(estimated_parameters[0])
-    # print(gradient)
-    exit()
-
-
+    models_dicts = [Variable(x['model']['linear.weight']) for x in results]
+    for pos, estimated_param in enumerate(models_dicts):
+        print(pos, torch.sum((estimated_param.mm(x.t()) - y)**2).data.numpy())
 
     t1 = time.time()
     t_multi = (t1 - t0) * 1000
