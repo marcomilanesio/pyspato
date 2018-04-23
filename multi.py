@@ -49,6 +49,7 @@ def run2(q, r, model, optimizer, num_iterations):
     tmp = []
     if not q.empty():
         x, y = q.get()
+        print('{} got x = {}, y = {}'.format(name, x.size(), y.size()))
         for i in range(num_iterations):
             optimizer.zero_grad()
             prediction = model(x)  # x = (400, 1): x1 = (200. 1). x2 = (200, 1)
