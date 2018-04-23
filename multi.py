@@ -47,6 +47,7 @@ def run2(q, r, model, optimizer, num_iterations):
     name = multiprocessing.current_process().name
     # print('starting {}'.format(name))
     tmp = []
+    t0 = time.time()
     if not q.empty():
         x, y = q.get()
         print('{} got x = {}, y = {}'.format(name, x.size(), y.size()))
@@ -57,6 +58,9 @@ def run2(q, r, model, optimizer, num_iterations):
             loss.backward()  # get the gradients
             tmp.append(loss.data.numpy())
             optimizer.step()
+
+        t = (time.time() - t0) * 1000
+        print("{0} end local optimization in {1:.2f} msec".format(name, t))
         g = Variable([param.grad.data for param in model.parameters()][0])
         # print(name, len(tmp))
         to_return = {'g': g, 'loss': tmp, 'model': model.state_dict()}
@@ -103,11 +107,11 @@ if __name__ == "__main__":
     mono_losses, mono_param_l, m = monolithic_run(x, y, model, optimizer, NUM_ITERATIONS)
 
     mono_params = Variable(mono_param_l[0])
-    print(type(mono_params), mono_params.size())
-    # print(mono_losses[-1])
+    # print(type(mono_params), mono_params.size())
+
     t1 = time.time()
     t_mono = (t1 - t0) * 1000
-    print('monolithic run: {} msec'.format('%.2f' % t_mono))
+    print('monolithic run: {0:.2f} msec'.format(t_mono))
     # print(w)
     # print(m.state_dict())
 
@@ -158,7 +162,7 @@ if __name__ == "__main__":
 
     t1 = time.time()
     t_multi = (t1 - t0) * 1000
-    print('multiprocess run: {} msec'.format(t_multi))
+    print('multiprocess run: {0:.2f} msec'.format(t_multi))
     # print(model.state_dict())
 
     fig, ax = plt.subplots()
