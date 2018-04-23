@@ -91,8 +91,8 @@ if __name__ == "__main__":
 
     NUM_ITERATIONS = 2500
     NUM_PARTITIONS = 10
-    N = 5000  # 50 - 500 - 1000 - 5000
-    dx = 100  # log fino a 1M (0-6)
+    N = 500  # 50 - 500 - 1000 - 5000
+    dx = 10  # log fino a 1M (0-6)
     dy = 5
 
     # torch variables
@@ -163,7 +163,7 @@ if __name__ == "__main__":
     fig, ax = plt.subplots()
     ax.plot(mono_losses, label='monolithic')
     ax.plot(multi_losses, color='red', label='multiprocessing')
-    plt.title('{}-{}-{}-{}'.format(N, dx, dy, NUM_PARTITIONS))
+    plt.title('X:({},{}), W:({},{}), n-splits: {}'.format(N, dx, dx, dy, NUM_PARTITIONS))
     plt.legend()
     plt.xlim(0, NUM_ITERATIONS)
     plt.show()
