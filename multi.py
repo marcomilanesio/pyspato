@@ -93,11 +93,10 @@ def monolithic_run(x, y, model, optimizer, num_iterations):
     return losses, estimated, model
 
 if __name__ == "__main__":
-
     NUM_ITERATIONS = 2500
-    NUM_PARTITIONS = 10
-    N = 500  # 50 - 500 - 1000 - 5000
-    dx = 10  # log fino a 1M (0-6)
+    NUM_PARTITIONS = 4
+    N = 5000  # 50 - 500 - 1000 - 5000
+    dx = 100  # log fino a 1M (0-6)
     dy = 5
 
     # torch variables
@@ -139,14 +138,17 @@ if __name__ == "__main__":
     processes = []
     multi_losses = []
     for rank in range(num_processes):
+        t = time.time()
         p = mp.Process(target=run2, args=(q, r, model, optimizer, NUM_ITERATIONS))
         p.start()
-        processes.append(p)
+        # print('process spawned {}'.format(time.time() - t))
+        # processes.append(p)
+        p.join()
 
     print('started {} processes'.format(len(processes)))
 
-    for p in processes:
-        p.join()
+    # for p in processes:
+    #     p.join()
 
     results = []
     while not r.empty():
