@@ -92,6 +92,19 @@ def monolithic_run(x, y, model, optimizer, num_iterations):
     estimated = [param.data for param in model.parameters()]
     return losses, estimated, model
 
+
+def plot_losses(mono_losses, multi_losses, N, dx, dy, n_splits):
+    fname = './plots/{}_{}_{}_{}.png'.format(N, dx, dy, n_splits)
+    fig, ax = plt.subplots()
+    ax.plot(mono_losses, label='monolithic')
+    if multi_losses is not None:
+        ax.plot(multi_losses, color='red', label='multiprocessing')
+    plt.title('X:({},{}), W:({},{}), n-splits: {}'.format(N, dx, dx, dy, n_splits))
+    plt.legend()
+    plt.savefig(fname)
+    # plt.show()
+    plt.close()
+
 if __name__ == "__main__":
     NUM_ITERATIONS = 2500
     NUM_PARTITIONS = 10
@@ -170,14 +183,15 @@ if __name__ == "__main__":
 
     mse = np.mean(differences)
     print('mean difference between parameters and target: {0:.5f}'.format(mse))
+    plot_losses(mono_losses, multi_losses, N, dx, dy, NUM_PARTITIONS)
 
-    fname = './plots/{}_{}_{}_{}.png'.format(N,dx,dy,NUM_PARTITIONS)
-    fig, ax = plt.subplots()
-    ax.plot(mono_losses, label='monolithic')
-    ax.plot(multi_losses, color='red', label='multiprocessing')
-    plt.title('X:({},{}), W:({},{}), n-splits: {}'.format(N, dx, dx, dy, NUM_PARTITIONS))
-    plt.legend()
-    plt.xlim(0, NUM_ITERATIONS)
-    plt.savefig(fname)
-    # plt.show()
-    plt.close()
+    # fname = './plots/{}_{}_{}_{}.png'.format(N, dx, dy, NUM_PARTITIONS)
+    # fig, ax = plt.subplots()
+    # ax.plot(mono_losses, label='monolithic')
+    # ax.plot(multi_losses, color='red', label='multiprocessing')
+    # plt.title('X:({},{}), W:({},{}), n-splits: {}'.format(N, dx, dx, dy, NUM_PARTITIONS))
+    # plt.legend()
+    # plt.xlim(0, NUM_ITERATIONS)
+    # plt.savefig(fname)
+    # # plt.show()
+    # plt.close()
