@@ -50,7 +50,7 @@ def run_mini_batch(q, r, model, optimizer, num_iterations):
     t0 = time.time()
     if not q.empty():
         x, y = q.get()
-        print('{} got x = {}, y = {}'.format(name, x.size(), y.size()))
+        # print('{} got x = {}, y = {}'.format(name, x.size(), y.size()))
         for i in range(num_iterations):
             optimizer.zero_grad()
             prediction = model(x)  # x = (400, 1): x1 = (200. 1). x2 = (200, 1)
@@ -60,7 +60,7 @@ def run_mini_batch(q, r, model, optimizer, num_iterations):
             optimizer.step()
 
         t = (time.time() - t0) * 1000
-        print("{0} end local optimization in {1:.2f} msec".format(name, t))
+        # print("{0} end local optimization in {1:.2f} msec".format(name, t))
         g = Variable([param.grad.data for param in model.parameters()][0])
         # print(name, len(tmp))
         to_return = {'g': g, 'loss': tmp, 'model': model.state_dict()}
@@ -94,7 +94,7 @@ def monolithic_run(x, y, model, optimizer, num_iterations):
 
 if __name__ == "__main__":
     NUM_ITERATIONS = 2500
-    NUM_PARTITIONS = 2
+    NUM_PARTITIONS = 10
     N = 500  # 50 - 500 - 1000 - 5000
     dx = 10  # log fino a 1M (0-6)
     dy = 5
@@ -122,7 +122,7 @@ if __name__ == "__main__":
     x_slices = list(torch.split(x, int(x.size()[0] / NUM_PARTITIONS)))
     parts = [(i, j) for i, j in zip(x_slices, y_slices)]
 
-    print('number of splits = {}'.format(len(parts)))
+    # print('number of splits = {}'.format(len(parts)))
     model.share_memory()
     mngr = mp.Manager()
 
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     for el in parts:
         q.put(el)
         time.sleep(0.1)
-    print('input queue full: {}'.format(q.full()))
+    # print('input queue full: {}'.format(q.full()))
 
     num_processes = NUM_PARTITIONS
     processes = []
@@ -142,13 +142,13 @@ if __name__ == "__main__":
         p = mp.Process(target=run_mini_batch, args=(q, r, model, optimizer, NUM_ITERATIONS))
         p.start()
         # print('process spawned {}'.format(time.time() - t))
-        # processes.append(p)
-        p.join()
+        processes.append(p)
+        # p.join()      # uncomment this for sequential
 
     # print('started {} processes'.format(len(processes)))
 
-    # for p in processes:
-    #     p.join()
+    for p in processes:
+        p.join()
 
     results = []
     while not r.empty():
@@ -166,18 +166,18 @@ if __name__ == "__main__":
     for pos, estimated_param in enumerate(models_dicts):
         diff = torch.sum((estimated_param - mono_params)**2).data.numpy()[0]
         differences.append(diff)
-        # print(pos, torch.sum((estimated_param.mm(x.t()) - y)**2).data.numpy())
-        print(pos, diff)
+        # print(pos, diff)
 
     mse = np.mean(differences)
     print('mean difference between parameters and target: {0:.5f}'.format(mse))
-    # print(model.state_dict())
 
+    fname = './plots/{}_{}_{}_{}.png'.format(N,dx,dy,NUM_PARTITIONS)
     fig, ax = plt.subplots()
     ax.plot(mono_losses, label='monolithic')
     ax.plot(multi_losses, color='red', label='multiprocessing')
     plt.title('X:({},{}), W:({},{}), n-splits: {}'.format(N, dx, dx, dy, NUM_PARTITIONS))
     plt.legend()
     plt.xlim(0, NUM_ITERATIONS)
-    plt.show()
+    plt.savefig(fname)
+    # plt.show()
     plt.close()
