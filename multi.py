@@ -7,7 +7,8 @@ from models import linmodel
 import utils
 import time
 import torch.multiprocessing as mp
-from functools import partial
+mp.set_start_method('spawn')
+# from functools import partial
 
 
 def init_data(nsamples, dx, dy):

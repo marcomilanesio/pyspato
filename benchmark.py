@@ -7,6 +7,7 @@ import csv
 import torch
 from torch.autograd import Variable
 
+
 n_iterations = 2500
 
 fieldnames = ['dx', 'dy', 'msec', 'error']
@@ -30,6 +31,7 @@ def main(N, dx, dy):
     return tmono, err
 
 if __name__ == "__main__":
+
     for N in [50]:  # , 500, 1000, 5000]:
         fname = './results/{}.csv'.format(N)
         res = []
