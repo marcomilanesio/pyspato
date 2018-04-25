@@ -94,9 +94,9 @@ def monolithic_run(x, y, model, optimizer, num_iterations):
 
 if __name__ == "__main__":
     NUM_ITERATIONS = 2500
-    NUM_PARTITIONS = 4
-    N = 5000  # 50 - 500 - 1000 - 5000
-    dx = 100  # log fino a 1M (0-6)
+    NUM_PARTITIONS = 2
+    N = 500  # 50 - 500 - 1000 - 5000
+    dx = 10  # log fino a 1M (0-6)
     dy = 5
 
     # torch variables
