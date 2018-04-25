@@ -43,7 +43,7 @@ def run(parts, model, optimizer):
     return g, loss
 
 
-def run2(q, r, model, optimizer, num_iterations):
+def run_mini_batch(q, r, model, optimizer, num_iterations):
     name = multiprocessing.current_process().name
     # print('starting {}'.format(name))
     tmp = []
@@ -134,18 +134,18 @@ if __name__ == "__main__":
     print('input queue full: {}'.format(q.full()))
 
     num_processes = NUM_PARTITIONS
-
     processes = []
     multi_losses = []
+
     for rank in range(num_processes):
         t = time.time()
-        p = mp.Process(target=run2, args=(q, r, model, optimizer, NUM_ITERATIONS))
+        p = mp.Process(target=run_mini_batch, args=(q, r, model, optimizer, NUM_ITERATIONS))
         p.start()
         # print('process spawned {}'.format(time.time() - t))
         # processes.append(p)
         p.join()
 
-    print('started {} processes'.format(len(processes)))
+    # print('started {} processes'.format(len(processes)))
 
     # for p in processes:
     #     p.join()
