@@ -157,14 +157,20 @@ if __name__ == "__main__":
     gradient = torch_list_sum([x['g'] for x in results])
     multi_losses = np.sum([x['loss'] for x in results], axis=0)
 
-    models_dicts = [Variable(x['model']['linear.weight']) for x in results]
-    for pos, estimated_param in enumerate(models_dicts):
-        # print(pos, torch.sum((estimated_param.mm(x.t()) - y)**2).data.numpy())
-        print(pos, torch.sum((estimated_param - mono_params)**2).data.numpy())
-
     t1 = time.time()
     t_multi = (t1 - t0) * 1000
     print('multiprocess run: {0:.2f} msec'.format(t_multi))
+
+    models_dicts = [Variable(x['model']['linear.weight']) for x in results]
+    differences = []
+    for pos, estimated_param in enumerate(models_dicts):
+        diff = torch.sum((estimated_param - mono_params)**2).data.numpy()[0]
+        differences.append(diff)
+        # print(pos, torch.sum((estimated_param.mm(x.t()) - y)**2).data.numpy())
+        print(pos, diff)
+
+    mse = np.mean(differences)
+    print('mean difference between parameters and target: {0:.5f}'.format(mse))
     # print(model.state_dict())
 
     fig, ax = plt.subplots()
