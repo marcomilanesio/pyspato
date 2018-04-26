@@ -7,8 +7,6 @@ from models import linmodel
 import utils
 import time
 import torch.multiprocessing as mp
-mp.set_start_method('spawn')
-# from functools import partial
 
 
 def init_data(nsamples, dx, dy):
@@ -51,7 +49,7 @@ def run_mini_batch(q, r, model, optimizer, num_iterations):
     t0 = time.time()
     if not q.empty():
         x, y = q.get()
-        # print('{} got x = {}, y = {}'.format(name, x.size(), y.size()))
+        print('{} got x = {}, y = {}'.format(name, x.size(), y.size()))
         for i in range(num_iterations):
             optimizer.zero_grad()
             prediction = model(x)  # x = (400, 1): x1 = (200. 1). x2 = (200, 1)
@@ -94,8 +92,9 @@ def monolithic_run(x, y, model, optimizer, num_iterations):
     return losses, estimated, model
 
 
-def plot_losses(mono_losses, multi_losses, N, dx, dy, n_splits):
-    fname = './plots/{}_{}_{}_{}.png'.format(N, dx, dy, n_splits)
+def plot_losses(mono_losses, multi_losses, N, dx, dy, n_splits, fname=None):
+    if not fname:
+        fname = './plots/{}_{}_{}_{}.png'.format(N, dx, dy, n_splits)
     fig, ax = plt.subplots()
     ax.plot(mono_losses, label='monolithic')
     if multi_losses is not None:
@@ -108,10 +107,10 @@ def plot_losses(mono_losses, multi_losses, N, dx, dy, n_splits):
 
 if __name__ == "__main__":
     NUM_ITERATIONS = 2500
-    NUM_PARTITIONS = 10
-    N = 500  # 50 - 500 - 1000 - 5000
+    NUM_PARTITIONS = 2
+    N = 50  # 50 - 500 - 1000 - 5000
     dx = 10  # log fino a 1M (0-6)
-    dy = 5
+    dy = 10
 
     # torch variables
     x, y, w = init_data(N, dx, dy)
@@ -180,19 +179,9 @@ if __name__ == "__main__":
     for pos, estimated_param in enumerate(models_dicts):
         diff = torch.sum((estimated_param - mono_params)**2).data.numpy()[0]
         differences.append(diff)
-        # print(pos, diff)
+        print(pos, estimated_param.size())
+        # print(pos, estimated_param, diff)
 
     mse = np.mean(differences)
     print('mean difference between parameters and target: {0:.5f}'.format(mse))
     plot_losses(mono_losses, multi_losses, N, dx, dy, NUM_PARTITIONS)
-
-    # fname = './plots/{}_{}_{}_{}.png'.format(N, dx, dy, NUM_PARTITIONS)
-    # fig, ax = plt.subplots()
-    # ax.plot(mono_losses, label='monolithic')
-    # ax.plot(multi_losses, color='red', label='multiprocessing')
-    # plt.title('X:({},{}), W:({},{}), n-splits: {}'.format(N, dx, dx, dy, NUM_PARTITIONS))
-    # plt.legend()
-    # plt.xlim(0, NUM_ITERATIONS)
-    # plt.savefig(fname)
-    # # plt.show()
-    # plt.close()
