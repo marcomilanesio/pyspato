@@ -1,3 +1,3 @@
 # pyspato
 
-Using pytorch under pyspark
+Using pytorch
